@@ -1,0 +1,4 @@
+Name,Phone,Email,Address,City,State,Property Type,Property Value
+John Smith,(555) 123-4567,john.smith@example.com,123 Main St,Austin,TX,Vacant Land,125000
+Jane Doe,(555) 987-6543,jane.doe@example.com,456 Oak Ave,Dallas,TX,Single Family,300000
+Mike Johnson,(555) 555-1234,mike.j@example.com,789 Pine St,Houston,TX,Condo,250000

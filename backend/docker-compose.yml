@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  # SMS Control Tower API
+  api:
+    build: 
+      context: .
+      target: development
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=true
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/sms_control_tower
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - .:/app
+      - uploads:/app/uploads
+    depends_on:
+      - db
+      - redis
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Celery Worker
+  worker:
+    build:
+      context: .
+      target: development
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/sms_control_tower
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - .:/app
+      - uploads:/app/uploads
+    depends_on:
+      - db
+      - redis
+    command: celery -A app.workers.celery_app worker --loglevel=info
+
+  # Celery Flower (monitoring)
+  flower:
+    build:
+      context: .
+      target: development
+    ports:
+      - "5555:5555"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    command: celery -A app.workers.celery_app flower --port=5555
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=sms_control_tower
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # Redis for caching and queues
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  # pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@example.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data:
+  uploads:
+
+networks:
+  default:
+    name: sms_control_tower
