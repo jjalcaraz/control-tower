@@ -67,10 +67,11 @@ async def compare_campaigns(
 
     campaigns_data = []
     for campaign_id in campaign_ids:
-        # Validate UUID format for each campaign ID
+        # Convert to string if integer, then validate UUID format
         try:
-            campaign_uuid = uuid.UUID(campaign_id)
-        except (ValueError, TypeError):
+            campaign_id_str = str(campaign_id) if not isinstance(campaign_id, str) else campaign_id
+            campaign_uuid = uuid.UUID(campaign_id_str)
+        except (ValueError, TypeError, AttributeError):
             # Skip invalid campaign IDs
             continue
 
@@ -335,10 +336,11 @@ async def compare_campaigns(
 
     campaigns_data = []
     for campaign_id in campaign_ids:
-        # Validate UUID format for each campaign ID
+        # Convert to string if integer, then validate UUID format
         try:
-            campaign_uuid = uuid.UUID(campaign_id)
-        except (ValueError, TypeError):
+            campaign_id_str = str(campaign_id) if not isinstance(campaign_id, str) else campaign_id
+            campaign_uuid = uuid.UUID(campaign_id_str)
+        except (ValueError, TypeError, AttributeError):
             # Skip invalid campaign IDs
             continue
 
