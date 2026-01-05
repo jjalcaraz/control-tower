@@ -7,7 +7,7 @@ import sys
 import os
 
 # Add the backend directory to Python path
-sys.path.insert(0, '/Users/juanalcaraz/Documents/control-tower/backend')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.services.twilio_service import TwilioService
 from app.core.config import settings

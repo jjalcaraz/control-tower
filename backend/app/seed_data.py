@@ -158,14 +158,19 @@ async def create_seed_data():
         # Use consistent UUIDs
         default_org_uuid = uuid.UUID("12345678-1234-5678-9abc-123456789012")
         default_user_uuid = uuid.UUID("12345678-1234-5678-9abc-123456789013")
-        
+
         # Check if organization already exists
-        org = await session.get(Organization, default_org_uuid)
+        from sqlalchemy import select
+        org_result = await session.execute(
+            select(Organization).where(Organization.id == default_org_uuid)
+        )
+        org = org_result.scalar_one_or_none()
+
         if not org:
             org = Organization(
                 id=default_org_uuid,
                 name="SMS Control Tower Demo",
-                slug="sms-control-tower-demo", 
+                slug="sms-control-tower-demo",
                 brand_name="Control Tower SMS",
                 default_timezone="America/Chicago",
                 compliance_settings={
@@ -175,24 +180,31 @@ async def create_seed_data():
                 }
             )
             session.add(org)
-        
+            await session.flush()  # Get org ID
+
         # Check if user already exists
-        user = await session.get(User, default_user_uuid)
+        user_result = await session.execute(
+            select(User).where(User.email == "admin@controlsms.demo")
+        )
+        user = user_result.scalar_one_or_none()
+
         if not user:
+            # Database schema: UUID id, hashed_password, first_name, last_name, organization_id, is_verified
             user = User(
-                id=default_user_uuid,
-                organization_id=org.id,
+                id=default_user_uuid,  # Use UUID
+                organization_id=org.id,  # Required foreign key
                 email="admin@controlsms.demo",
                 username="admin",
-                hashed_password="$2b$12$dummy.hashed.password.for.seed.data.only",
-                first_name="Admin",
-                last_name="User",
+                hashed_password="$2b$12$dummy.hashed.password.for.seed.data.only",  # Column is 'hashed_password'
+                first_name="Admin",  # Separate first_name column
+                last_name="User",    # Separate last_name column
                 role="admin",
                 is_active=True,
-                is_verified=True
+                is_verified=True  # Has is_verified column
             )
             session.add(user)
-            
+            await session.flush()  # Get user ID
+
         await session.commit()
         return org, user
 
@@ -202,16 +214,18 @@ async def seed_spanish_templates():
     async with AsyncSessionLocal() as session:
         # Get or create default organization and user
         org, user = await create_seed_data()
-        
+
         # Check if templates already exist
-        from sqlalchemy import text
-        existing = await session.execute(text("SELECT COUNT(*) FROM templates WHERE category = 'initial'"))
-        count = existing.scalar()
-        
-        if count > 0:
-            print(f"Templates already exist ({count} initial templates found). Skipping seed.")
+        from sqlalchemy import text, select
+        existing = await session.execute(
+            select(Template).where(Template.category == "initial")
+        )
+        existing_templates = existing.scalars().all()
+
+        if existing_templates:
+            print(f"Templates already exist ({len(existing_templates)} initial templates found). Skipping seed.")
             return
-        
+
         # Create templates
         templates_created = 0
         for template_data in SPANISH_TEMPLATES:
@@ -226,11 +240,11 @@ async def seed_spanish_templates():
                 is_active=True,
                 is_approved=True,
                 usage_count=0,
-                created_by=user.id
+                created_by=user.id  # User.id is now UUID
             )
             session.add(template)
             templates_created += 1
-        
+
         await session.commit()
         print(f"Successfully created {templates_created} Spanish templates for landowner outreach")
 

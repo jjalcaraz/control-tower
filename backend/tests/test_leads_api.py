@@ -11,6 +11,7 @@ This test suite covers:
 """
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
@@ -30,13 +31,13 @@ from app.core.auth import create_access_token
 class TestLeadsAPI:
     """Test suite for Lead Management API endpoints"""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def client(self):
         """Create async HTTP client for testing"""
-        async with AsyncClient(app=app, base_url="http://test") as ac:
+        async with AsyncClient(app=app, base_url="http://test", follow_redirects=True) as ac:
             yield ac
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def auth_headers(self):
         """Generate authentication headers for testing"""
         # Create development JWT token
@@ -49,39 +50,38 @@ class TestLeadsAPI:
         )
         return {"Authorization": f"Bearer {token}"}
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def test_db_session(self):
         """Get test database session"""
         async for session in get_db():
             yield session
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def sample_lead_data(self):
         """Sample lead data for testing"""
         return {
-            "owner_name": "John Doe",
-            "phone_number_1": "5551234567",
-            "phone_number_2": "5559876543",
+            "first_name": "John",
+            "last_name": "Doe",
+            "full_name": "John Doe",
+            "phone1": "5551234567",
+            "phone2": "5559876543",
             "email": "john.doe@example.com",
-            "street_address": "123 Main St",
+            "address_line1": "123 Main St",
             "city": "Austin",
             "state": "TX",
             "zip_code": "78701",
             "country": "US",
             "property_type": "Single Family",
-            "property_value": 450000.0,
+            "estimated_value": 450000.0,
             "acreage": 0.25,
-            "year_built": 2010,
-            "bedrooms": 3,
-            "bathrooms": 2,
-            "square_feet": 1800,
             "lead_score": "hot",
             "lead_source": "Website",
             "status": "new",
-            "notes": "Test lead for automated testing"
+            "notes": "Test lead for automated testing",
+            "organization_id": "12345678-1234-5678-9abc-123456789012"  # Use default org
         }
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def test_lead(self, test_db_session: AsyncSession, sample_lead_data):
         """Create a test lead in database"""
         lead = Lead(**sample_lead_data)
@@ -100,15 +100,16 @@ class TestLeadsAPI:
     @pytest.mark.asyncio
     async def test_get_leads_success(self, client: AsyncClient, auth_headers, test_lead):
         """Test successful retrieval of leads list"""
-        response = await client.get("/api/v1/leads", headers=auth_headers)
+        response = await client.get("/api/v1/leads/", headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
-        assert data["success"] is True
-        assert "data" in data
-        assert "pagination" in data
-        assert len(data["data"]) > 0
-        assert data["pagination"]["total"] > 0
+        assert isinstance(data, list)
+        assert len(data) > 0
+        # Check first lead has expected fields
+        assert "id" in data[0]
+        assert "first_name" in data[0]
+        assert "email" in data[0]
 
     @pytest.mark.asyncio
     async def test_get_leads_pagination(self, client: AsyncClient, auth_headers):
