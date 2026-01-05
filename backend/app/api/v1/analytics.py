@@ -156,3 +156,37 @@ async def get_conversion_funnel(
             "closed_rate": 50.0
         }
     }
+
+
+@router.get("/phone-health")
+async def get_phone_health(db: AsyncSession = Depends(get_db)):
+    """Get phone number health metrics"""
+    from sqlalchemy import select
+    from app.models import PhoneNumber
+
+    # Get all phone numbers
+    result = await db.execute(select(PhoneNumber))
+    phone_numbers = result.scalars().all()
+
+    # Calculate health metrics
+    total_numbers = len(phone_numbers)
+    active_numbers = sum(1 for pn in phone_numbers if pn.is_active)
+    healthy_numbers = sum(1 for pn in phone_numbers if pn.status == "healthy")
+
+    return {
+        "total_numbers": total_numbers,
+        "active_numbers": active_numbers,
+        "healthy_numbers": healthy_numbers,
+        "health_percentage": (healthy_numbers / total_numbers * 100) if total_numbers > 0 else 100.0,
+        "phone_numbers": [
+            {
+                "id": str(pn.id),
+                "phone_number": pn.phone_number,
+                "status": pn.status,
+                "is_active": pn.is_active,
+                "carrier": pn.carrier,
+                "quality_score": getattr(pn, 'quality_score', 95.0)
+            }
+            for pn in phone_numbers
+        ]
+    }
