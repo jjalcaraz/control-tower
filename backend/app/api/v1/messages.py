@@ -142,6 +142,74 @@ class ConversationResponse(BaseModel):
     messages: List[MessageResponse]
 
 
+class ConversationSummary(BaseModel):
+    lead_id: str
+    lead_name: str
+    last_message: str
+    last_message_time: datetime
+    unread_count: int
+    is_starred: bool
+    is_archived: bool
+
+
+@router.get("/conversations/", response_model=List[ConversationSummary])
+async def list_conversations(
+    status: Optional[str] = None,
+    unread_count_gt: Optional[int] = None,
+    starred: Optional[bool] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db)
+):
+    """List all conversations with filtering"""
+    from sqlalchemy import select, func
+    from app.models import Lead
+
+    # Get unique lead IDs from messages
+    msg_query = select(Message.lead_id).distinct()
+    msg_result = await db.execute(msg_query)
+    lead_ids = [row[0] for row in msg_result.all()]
+
+    if not lead_ids:
+        return []
+
+    # Get leads by IDs
+    query = select(Lead).where(Lead.id.in_(lead_ids))
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    leads = result.scalars().all()
+
+    # Get last message for each lead
+    conversations = []
+    for lead in leads:
+        # Get the most recent message for this lead
+        msg_result = await db.execute(
+            select(Message)
+            .where(Message.lead_id == lead.id)
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        )
+        last_message = msg_result.scalar_one_or_none()
+
+        if last_message:
+            conversations.append(
+                ConversationSummary(
+                    lead_id=str(lead.id),
+                    lead_name=lead.full_name or f"{lead.first_name} {lead.last_name}",
+                    last_message=last_message.content[:100] if last_message.content else "",
+                    last_message_time=last_message.created_at,
+                    unread_count=0,  # Would calculate from read status
+                    is_starred=False,  # Would query from database
+                    is_archived=(status == "archived")
+                )
+            )
+
+    # Sort by last message time
+    conversations.sort(key=lambda x: x.last_message_time, reverse=True)
+
+    return conversations
+
+
 @router.get("/conversations/{lead_id}", response_model=ConversationResponse)
 async def get_conversation(lead_id: str, db: AsyncSession = Depends(get_db)):
     """Get all messages for a conversation with a lead"""
