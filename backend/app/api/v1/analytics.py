@@ -1,8 +1,9 @@
 # Analytics API Routes
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from datetime import date, timedelta
+import uuid
 
 from app.core.database import get_db
 from app.models import Lead, Campaign, Message
@@ -66,8 +67,15 @@ async def compare_campaigns(
 
     campaigns_data = []
     for campaign_id in campaign_ids:
+        # Validate UUID format for each campaign ID
+        try:
+            campaign_uuid = uuid.UUID(campaign_id)
+        except (ValueError, TypeError):
+            # Skip invalid campaign IDs
+            continue
+
         result = await db.execute(
-            select(Campaign).where(Campaign.id == campaign_id)
+            select(Campaign).where(Campaign.id == campaign_uuid)
         )
         campaign = result.scalar_one_or_none()
 
@@ -185,8 +193,14 @@ async def get_campaign_analytics(
     from sqlalchemy import select
     from app.models import Campaign
 
+    # Validate UUID format
+    try:
+        campaign_uuid = uuid.UUID(campaign_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid campaign ID format. Must be a valid UUID.")
+
     result = await db.execute(
-        select(Campaign).where(Campaign.id == campaign_id)
+        select(Campaign).where(Campaign.id == campaign_uuid)
     )
     campaign = result.scalar_one_or_none()
 
@@ -321,8 +335,15 @@ async def compare_campaigns(
 
     campaigns_data = []
     for campaign_id in campaign_ids:
+        # Validate UUID format for each campaign ID
+        try:
+            campaign_uuid = uuid.UUID(campaign_id)
+        except (ValueError, TypeError):
+            # Skip invalid campaign IDs
+            continue
+
         result = await db.execute(
-            select(Campaign).where(Campaign.id == campaign_id)
+            select(Campaign).where(Campaign.id == campaign_uuid)
         )
         campaign = result.scalar_one_or_none()
 
