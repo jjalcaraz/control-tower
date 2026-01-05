@@ -13,8 +13,9 @@ router = APIRouter()
 
 @router.get("/", response_model=List[LeadResponse])
 async def list_leads(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    page: Optional[int] = Query(None, ge=1, description="Page number (alternative to skip)"),
+    limit: int = Query(50, ge=1, le=1000, description="Number of records per page"),
     search: Optional[str] = None,
     county: Optional[str] = None,
     tags: Optional[List[str]] = None,
@@ -23,6 +24,10 @@ async def list_leads(
 ):
     """List all leads with filtering and pagination"""
     from sqlalchemy import select, func
+
+    # Convert page to skip if page is provided
+    if page is not None:
+        skip = (page - 1) * limit
 
     query = select(Lead)
 
