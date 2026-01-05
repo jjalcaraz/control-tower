@@ -127,7 +127,7 @@ export const mockMessages: Message[] = [
     direction: 'outgoing',
     status: 'delivered',
     leadId: 1,
-    campaignId: 1,
+    campaignId: 'c459679f-f251-4f41-8031-ad3cfd0192ab',
     sentAt: new Date(Date.now() - 1000 * 60 * 60),
     deliveredAt: new Date(Date.now() - 1000 * 60 * 59),
     createdAt: new Date(Date.now() - 1000 * 60 * 60)
@@ -181,8 +181,8 @@ export const mockConversationSummaries: MockConversationSummary[] = [
     unreadCount: 2,
     status: 'active',
     tags: ['interested', 'texas'],
-    campaignId: '1',
-    campaignName: 'Land Acquisition Q4'
+    campaignId: 'c459679f-f251-4f41-8031-ad3cfd0192ab',
+    campaignName: 'Test Campaign Q1 2025'
   },
   {
     id: '2',
@@ -194,8 +194,8 @@ export const mockConversationSummaries: MockConversationSummary[] = [
     unreadCount: 0,
     status: 'active',
     tags: ['opt-out'],
-    campaignId: '2',
-    campaignName: 'Property Follow-up'
+    campaignId: 'c459679f-f251-4f41-8031-ad3cfd0192ab',
+    campaignName: 'Test Campaign Q1 2025'
   },
   {
     id: '3',
@@ -207,8 +207,8 @@ export const mockConversationSummaries: MockConversationSummary[] = [
     unreadCount: 1,
     status: 'starred',
     tags: ['warm-lead', 'commercial'],
-    campaignId: '3',
-    campaignName: 'New Leads Welcome'
+    campaignId: 'c459679f-f251-4f41-8031-ad3cfd0192ab',
+    campaignName: 'Test Campaign Q1 2025'
   }
 ]
 
