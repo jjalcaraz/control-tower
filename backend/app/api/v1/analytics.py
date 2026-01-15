@@ -379,7 +379,7 @@ async def get_phone_health(db: AsyncSession = Depends(get_db)):
 
     # Calculate health metrics
     total_numbers = len(phone_numbers)
-    active_numbers = sum(1 for pn in phone_numbers if pn.is_active)
+    active_numbers = sum(1 for pn in phone_numbers if pn.status == "active")
     healthy_numbers = sum(1 for pn in phone_numbers if pn.status == "healthy")
 
     return {
@@ -392,8 +392,8 @@ async def get_phone_health(db: AsyncSession = Depends(get_db)):
                 "id": str(pn.id),
                 "phone_number": pn.phone_number,
                 "status": pn.status,
-                "is_active": pn.is_active,
-                "carrier": pn.carrier,
+                "is_active": pn.status == "active",
+                "carrier": getattr(pn, "carrier_name", None),
                 "quality_score": getattr(pn, 'quality_score', 95.0)
             }
             for pn in phone_numbers

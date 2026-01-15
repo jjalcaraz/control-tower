@@ -1,7 +1,7 @@
 from celery import current_app as celery_app
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import asyncio
 import uuid
 from typing import Dict, Any, Optional
@@ -132,7 +132,7 @@ async def _send_campaign_message_async(task, campaign_target_id: str) -> Dict[st
                 
                 # Update target status
                 target.status = "sent"
-                target.sent_at = datetime.utcnow()
+                target.sent_at = datetime.now(timezone.utc)
                 target.last_template_id = template.id
                 target.phone_number_id = from_number.id
                 
@@ -293,7 +293,7 @@ async def _update_message_status_async(message_sid: str, status: str, error_code
             # Update message status
             old_status = message.status
             message.status = status
-            message.updated_at = datetime.utcnow()
+            message.updated_at = datetime.now(timezone.utc)
             
             if error_code:
                 message.error_code = error_code
@@ -304,7 +304,7 @@ async def _update_message_status_async(message_sid: str, status: str, error_code
                 message_id=message.id,
                 status=status,
                 error_code=error_code,
-                timestamp=datetime.utcnow()
+                timestamp=datetime.now(timezone.utc)
             )
             
             db.add(status_event)
@@ -320,7 +320,7 @@ async def _update_message_status_async(message_sid: str, status: str, error_code
                     if status in ["delivered", "undelivered", "failed"]:
                         target.status = status
                         if status == "delivered":
-                            target.delivered_at = datetime.utcnow()
+                            target.delivered_at = datetime.now(timezone.utc)
             
             await db.commit()
             
@@ -361,7 +361,7 @@ async def _update_pending_message_statuses_async() -> Dict[str, Any]:
     async with AsyncSessionLocal() as db:
         try:
             # Find messages with pending statuses older than 5 minutes
-            cutoff_time = datetime.utcnow() - timedelta(minutes=5)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=5)
             
             result = await db.execute(
                 select(Message).where(
@@ -387,14 +387,14 @@ async def _update_pending_message_statuses_async() -> Dict[str, Any]:
                         message.status = status_info['status']
                         message.error_code = status_info.get('error_code')
                         message.error_message = status_info.get('error_message')
-                        message.updated_at = datetime.utcnow()
+                        message.updated_at = datetime.now(timezone.utc)
                         
                         # Create status event
                         status_event = MessageStatusEvent(
                             message_id=message.id,
                             status=status_info['status'],
                             error_code=status_info.get('error_code'),
-                            timestamp=datetime.utcnow()
+                            timestamp=datetime.now(timezone.utc)
                         )
                         
                         db.add(status_event)
@@ -421,7 +421,7 @@ async def _update_pending_message_statuses_async() -> Dict[str, Any]:
 async def _update_target_status(db: AsyncSession, target: CampaignTarget, status: str, error_message: Optional[str] = None):
     """Update campaign target status"""
     target.status = status
-    target.updated_at = datetime.utcnow()
+    target.updated_at = datetime.now(timezone.utc)
     if error_message:
         target.error_message = error_message
     await db.commit()
@@ -437,7 +437,7 @@ async def _is_sending_allowed_now(target: CampaignTarget) -> bool:
 async def _get_next_allowed_send_time(target: CampaignTarget) -> datetime:
     """Calculate next allowed send time based on quiet hours"""
     # Implement based on target lead's timezone and quiet hours
-    return datetime.utcnow() + timedelta(hours=8)
+    return datetime.now(timezone.utc) + timedelta(hours=8)
 
 
 async def _get_available_phone_number(db: AsyncSession, org_id: uuid.UUID) -> Optional[PhoneNumber]:
@@ -457,7 +457,7 @@ async def _get_available_phone_number(db: AsyncSession, org_id: uuid.UUID) -> Op
 async def _can_send_now(db: AsyncSession, phone_number: PhoneNumber) -> bool:
     """Check if phone number can send based on rate limits"""
     # Check messages sent in the last second
-    one_second_ago = datetime.utcnow() - timedelta(seconds=1)
+    one_second_ago = datetime.now(timezone.utc) - timedelta(seconds=1)
     
     result = await db.execute(
         select(Message).where(
@@ -481,7 +481,7 @@ async def _calculate_rate_limit_delay(db: AsyncSession, phone_number: PhoneNumbe
 
 async def _track_send_for_rate_limiting(db: AsyncSession, phone_number: PhoneNumber):
     """Update last used timestamp for rate limiting"""
-    phone_number.last_used_at = datetime.utcnow()
+    phone_number.last_used_at = datetime.now(timezone.utc)
     await db.commit()
 
 

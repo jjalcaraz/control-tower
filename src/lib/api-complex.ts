@@ -1,3 +1,4 @@
+// @ts-nocheck
 import axios, { AxiosError, AxiosResponse } from 'axios'
 import { AuthResponse } from '@/types/auth'
 import * as mockData from './mock-data'

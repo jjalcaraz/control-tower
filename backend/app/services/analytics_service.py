@@ -2,7 +2,7 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.models.campaign_minimal import Campaign
 from app.models.message import Message
@@ -173,7 +173,7 @@ class AnalyticsService:
         return {
             "report_id": str(uuid.uuid4()),
             "config": config,
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "data": {}
         }
     
@@ -190,7 +190,7 @@ class AnalyticsService:
         
         # Basic implementation - would generate actual export data
         if format == "json":
-            return {"data": [], "exported_at": datetime.utcnow().isoformat()}
+            return {"data": [], "exported_at": datetime.now(timezone.utc).isoformat()}
         elif format == "csv":
             return "header1,header2\nvalue1,value2\n"
         else:
@@ -211,7 +211,7 @@ class AnalyticsService:
             "delivered": 0,
             "replies": 0,
             "errors": 0,
-            "last_updated": datetime.utcnow().isoformat()
+            "last_updated": datetime.now(timezone.utc).isoformat()
         }
     
     async def get_system_health(self, org_id: uuid.UUID) -> Dict[str, Any]:
@@ -222,7 +222,7 @@ class AnalyticsService:
             "database_status": "connected",
             "queue_status": "healthy",
             "worker_status": "running",
-            "last_checked": datetime.utcnow().isoformat()
+            "last_checked": datetime.now(timezone.utc).isoformat()
         }
     
     async def track_message_sent(

@@ -45,7 +45,7 @@ interface EditLeadDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   lead?: any
-  onUpdateLead?: (leadId: number, lead: EditLeadForm) => void
+  onUpdateLead?: (leadId: string | number, lead: EditLeadForm) => void
 }
 
 export function EditLeadDialog({ open, onOpenChange, lead, onUpdateLead }: EditLeadDialogProps) {

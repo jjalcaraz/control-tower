@@ -38,3 +38,14 @@ Element.prototype.getBoundingClientRect = vi.fn(() => ({
   y: 0,
   toJSON: vi.fn(),
 }))
+
+// Mock Pointer Events helpers used by Radix Select
+if (!Element.prototype.hasPointerCapture) {
+  Element.prototype.hasPointerCapture = vi.fn()
+}
+if (!Element.prototype.setPointerCapture) {
+  Element.prototype.setPointerCapture = vi.fn()
+}
+if (!Element.prototype.releasePointerCapture) {
+  Element.prototype.releasePointerCapture = vi.fn()
+}

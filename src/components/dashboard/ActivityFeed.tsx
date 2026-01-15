@@ -133,7 +133,7 @@ export function ActivityFeed({ activities, isLoading }: ActivityFeedProps) {
       <CardContent>
         <ScrollArea className="h-80">
           <div className="space-y-4">
-            {activities.map((activity, index) => {
+            {activities.map((activity) => {
               const Icon = getActivityIcon(activity.type)
               const iconColorClass = getActivityColor(activity.type)
               

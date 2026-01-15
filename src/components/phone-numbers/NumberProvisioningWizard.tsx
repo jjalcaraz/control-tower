@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -12,7 +12,6 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
-import { useMutation } from '@tanstack/react-query'
 import { usePurchasePhoneNumber } from '@/hooks/use-api'
 import { toast } from 'sonner'
 
@@ -60,7 +59,8 @@ export function NumberProvisioningWizard({ onComplete, onCancel }: NumberProvisi
       onComplete()
     },
     onError: (error) => {
-      toast.error(error.message || 'Failed to purchase phone number')
+      const message = error instanceof Error ? error.message : 'Failed to purchase phone number'
+      toast.error(message)
     },
   })
 
@@ -71,11 +71,11 @@ export function NumberProvisioningWizard({ onComplete, onCancel }: NumberProvisi
     { title: 'Review & Purchase', description: 'Review and complete purchase' },
   ]
 
-  const searchNumbers = async (areaCode: string, numberType: string) => {
+  const searchNumbers = async (areaCode: string) => {
     setIsSearching(true)
     try {
       // Mock search results - in production, call real API
-      const mockResults = Array.from({ length: 10 }, (_, i) => ({
+      const mockResults = Array.from({ length: 10 }, () => ({
         phoneNumber: `+1${areaCode}${String(Math.floor(Math.random() * 10000000)).padStart(7, '0')}`,
         capabilities: ['SMS', 'Voice'],
         monthlyFee: 1.15,
@@ -92,9 +92,8 @@ export function NumberProvisioningWizard({ onComplete, onCancel }: NumberProvisi
 
   const handleAreaCodeNext = async () => {
     const areaCode = form.getValues('areaCode')
-    const numberType = form.getValues('numberType')
     if (areaCode) {
-      await searchNumbers(areaCode, numberType)
+      await searchNumbers(areaCode)
       setCurrentStep(1)
     }
   }

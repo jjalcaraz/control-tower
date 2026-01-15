@@ -1,4 +1,4 @@
-import { Radio, Zap } from 'lucide-react'
+import { Radio } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface LogoProps {

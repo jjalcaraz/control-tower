@@ -4,14 +4,12 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { useMutation } from '@tanstack/react-query'
 import { useBulkOptOut } from '@/hooks/use-api'
 import { toast } from 'sonner'
 
@@ -46,16 +44,18 @@ export function BulkOptOutDialog({ open, onOpenChange, onComplete }: BulkOptOutD
   })
 
   const bulkOptOutMutation = useBulkOptOut({
-    onSuccess: (data) => {
-      toast.success(`Successfully processed ${data.success_count} opt-outs`)
-      if (data.error_count > 0) {
-        toast.warning(`${data.error_count} phone numbers failed to process`)
+    onSuccess: (data: unknown) => {
+      const result = data as { success_count: number; error_count: number }
+      toast.success(`Successfully processed ${result.success_count} opt-outs`)
+      if (result.error_count > 0) {
+        toast.warning(`${result.error_count} phone numbers failed to process`)
       }
       onComplete?.()
       handleClose()
     },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to process bulk opt-out')
+    onError: (error: unknown) => {
+      const err = error instanceof Error ? error : new Error(String(error))
+      toast.error(err.message || 'Failed to process bulk opt-out')
       setStep('input')
     },
   })
@@ -127,7 +127,8 @@ export function BulkOptOutDialog({ open, onOpenChange, onComplete }: BulkOptOutD
     const batches = Math.ceil(total / batchSize)
 
     for (let i = 0; i < batches; i++) {
-      const batch = phoneList.slice(i * batchSize, (i + 1) * batchSize)
+      // Process in batches
+      phoneList.slice(i * batchSize, (i + 1) * batchSize)
 
       try {
         await new Promise(resolve => setTimeout(resolve, 500)) // Simulate API delay
@@ -138,7 +139,7 @@ export function BulkOptOutDialog({ open, onOpenChange, onComplete }: BulkOptOutD
     }
 
     // Call the actual API
-    bulkOptOutMutation.mutate({
+    ;(bulkOptOutMutation as any).mutate({
       phoneNumbers: phoneList,
       reason: form.getValues('reason'),
       source: form.getValues('source'),
@@ -327,7 +328,7 @@ export function BulkOptOutDialog({ open, onOpenChange, onComplete }: BulkOptOutD
         {bulkOptOutMutation.isError && (
           <Alert variant="destructive">
             <AlertDescription>
-              Error processing opt-outs: {bulkOptOutMutation.error.message}
+              Error processing opt-outs: {bulkOptOutMutation.error instanceof Error ? bulkOptOutMutation.error.message : 'Unknown error'}
             </AlertDescription>
           </Alert>
         )}

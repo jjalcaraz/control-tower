@@ -3,7 +3,7 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 
 export interface CalendarProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'defaultValue' | 'onChange'> {
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'defaultValue' | 'onChange' | 'disabled' | 'onSelect'> {
   selected?: Date
   onSelect?: (date?: Date) => void
   disabled?: (date: Date) => boolean

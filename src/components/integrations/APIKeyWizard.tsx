@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -11,7 +11,6 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
 import { Copy, Eye, EyeOff, Download, AlertTriangle, Shield } from 'lucide-react'
-import { useMutation } from '@tanstack/react-query'
 import { useCreateAPIKey } from '@/hooks/use-api'
 import { toast } from 'sonner'
 
@@ -78,20 +77,22 @@ export function APIKeyWizard({ onComplete, onCancel }: APIKeyWizardProps) {
       name: '',
       permissions: ['read'],
       scopes: ['all'],
-      expiresInDays: null,
-      rateLimitPerHour: null,
+      expiresInDays: undefined,
+      rateLimitPerHour: undefined,
       description: '',
     },
   })
 
   const createAPIKeyMutation = useCreateAPIKey({
-    onSuccess: (data) => {
-      setGeneratedKey(data.api_key)
+    onSuccess: (data: unknown) => {
+      const result = data as { api_key: string }
+      setGeneratedKey(result.api_key)
       setCurrentStep(2)
       toast.success('API key generated successfully!')
     },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to create API key')
+    onError: (error: unknown) => {
+      const err = error instanceof Error ? error : new Error(String(error))
+      toast.error(err.message || 'Failed to create API key')
     },
   })
 
@@ -103,7 +104,7 @@ export function APIKeyWizard({ onComplete, onCancel }: APIKeyWizardProps) {
 
   const handleCreate = () => {
     const formData = form.getValues()
-    createAPIKeyMutation.mutate({
+    ;(createAPIKeyMutation as any).mutate({
       name: formData.name,
       permissions: formData.permissions,
       scopes: formData.scopes,
@@ -184,7 +185,7 @@ export function APIKeyWizard({ onComplete, onCancel }: APIKeyWizardProps) {
         <Label>Expiration</Label>
         <Select
           value={form.watch('expiresInDays')?.toString() || 'null'}
-          onValueChange={(value) => form.setValue('expiresInDays', value === 'null' ? null : parseInt(value))}
+          onValueChange={(value) => form.setValue('expiresInDays', value === 'null' ? undefined : parseInt(value))}
         >
           <SelectTrigger className="mt-1">
             <SelectValue />
@@ -203,7 +204,7 @@ export function APIKeyWizard({ onComplete, onCancel }: APIKeyWizardProps) {
         <Label>Rate Limit</Label>
         <Select
           value={form.watch('rateLimitPerHour')?.toString() || 'null'}
-          onValueChange={(value) => form.setValue('rateLimitPerHour', value === 'null' ? null : parseInt(value))}
+          onValueChange={(value) => form.setValue('rateLimitPerHour', value === 'null' ? undefined : parseInt(value))}
         >
           <SelectTrigger className="mt-1">
             <SelectValue />
@@ -474,7 +475,7 @@ export function APIKeyWizard({ onComplete, onCancel }: APIKeyWizardProps) {
         <Checkbox
           id="key-saved"
           checked={keySaved}
-          onCheckedChange={(checked) => setKeySaved(checked)}
+          onCheckedChange={(checked) => setKeySaved(checked as boolean)}
         />
         <Label htmlFor="key-saved">
           I have saved this API key in a secure location

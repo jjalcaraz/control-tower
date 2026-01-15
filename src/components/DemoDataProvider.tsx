@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from 'react'
+import { createContext, useContext, ReactNode } from 'react'
 import * as mockData from '@/lib/mock-data'
 
 interface DemoDataContextType {

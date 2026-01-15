@@ -1,17 +1,58 @@
 # Leads API Routes
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, Form
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
+from typing import List, Optional, Union
+from pydantic import BaseModel
 from datetime import datetime
+import json
+import uuid
 
 from app.core.database import get_db
 from app.models import Lead
-from app.schemas.lead import LeadCreate, LeadUpdate, LeadResponse, LeadImportPreview
+from app.schemas.lead import LeadCreate, LeadCreateFrontend, LeadUpdate, LeadResponse, LeadImportPreview, LeadImportResult
+from app.services.lead_import import LeadImportService
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[LeadResponse])
+def _parse_uuid(value: str, label: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(value)
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=400, detail=f"Invalid {label}")
+
+
+def _normalize_import_mappings(column_mappings: dict) -> dict:
+    field_aliases = {
+        "firstName": "first_name",
+        "lastName": "last_name",
+        "primaryPhone": "phone1",
+        "secondaryPhone": "phone2",
+        "alternatePhone": "phone3",
+        "address.street": "address_line1",
+        "address.city": "city",
+        "address.state": "state",
+        "address.zip": "zip_code",
+        "address.county": "county",
+        "property.propertyType": "property_type",
+        "property.acreage": "acreage",
+        "property.estimatedValue": "estimated_value",
+        "property.parcelId": "parcel_id",
+        "leadSource": "lead_source",
+    }
+
+    normalized = {}
+    for csv_column, lead_field in column_mappings.items():
+        normalized[csv_column] = field_aliases.get(lead_field, lead_field)
+    return normalized
+
+
+class BulkUpdateRequest(BaseModel):
+    leadIds: List[str]
+    updates: dict
+
+
+@router.get("/")
 async def list_leads(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     page: Optional[int] = Query(None, ge=1, description="Page number (alternative to skip)"),
@@ -36,7 +77,10 @@ async def list_leads(
         query = query.where(
             (Lead.first_name.ilike(f"%{search}%")) |
             (Lead.last_name.ilike(f"%{search}%")) |
-            (Lead.email.ilike(f"%{search}%"))
+            (Lead.email.ilike(f"%{search}%")) |
+            (Lead.phone1.ilike(f"%{search}%")) |
+            (Lead.phone2.ilike(f"%{search}%")) |
+            (Lead.phone3.ilike(f"%{search}%"))
         )
 
     if county:
@@ -45,12 +89,30 @@ async def list_leads(
     if status:
         query = query.where(Lead.status == status)
 
+    # Total count (for pagination)
+    count_query = select(func.count(Lead.id))
+    if search:
+        count_query = count_query.where(
+            (Lead.first_name.ilike(f"%{search}%")) |
+            (Lead.last_name.ilike(f"%{search}%")) |
+            (Lead.email.ilike(f"%{search}%")) |
+            (Lead.phone1.ilike(f"%{search}%")) |
+            (Lead.phone2.ilike(f"%{search}%")) |
+            (Lead.phone3.ilike(f"%{search}%"))
+        )
+    if county:
+        count_query = count_query.where(Lead.county == county)
+    if status:
+        count_query = count_query.where(Lead.status == status)
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
     # Apply pagination
     query = query.offset(skip).limit(limit).order_by(Lead.created_at.desc())
     result = await db.execute(query)
     leads = result.scalars().all()
 
-    return [
+    data = [
         LeadResponse(
             id=str(lead.id),
             first_name=lead.first_name,
@@ -66,7 +128,7 @@ async def list_leads(
             state=lead.state,
             zip_code=lead.zip_code,
             county=lead.county,
-            country=lead.country,
+            country=lead.country or "US",
             parcel_id=lead.parcel_id,
             property_type=lead.property_type,
             acreage=lead.acreage,
@@ -84,14 +146,30 @@ async def list_leads(
         for lead in leads
     ]
 
+    page_size = limit
+    current_page = page if page is not None else (skip // limit) + 1
+    total_pages = (total + page_size - 1) // page_size if page_size else 1
+
+    return {
+        "success": True,
+        "data": data,
+        "pagination": {
+            "page": current_page,
+            "pageSize": page_size,
+            "total": total,
+            "totalPages": total_pages
+        }
+    }
+
 
 @router.get("/{lead_id}", response_model=LeadResponse)
 async def get_lead(lead_id: str, db: AsyncSession = Depends(get_db)):
     """Get a specific lead by ID"""
     from sqlalchemy import select
 
+    lead_uuid = _parse_uuid(lead_id, "lead_id")
     result = await db.execute(
-        select(Lead).where(Lead.id == lead_id)
+        select(Lead).where(Lead.id == lead_uuid)
     )
     lead = result.scalar_one_or_none()
 
@@ -113,7 +191,7 @@ async def get_lead(lead_id: str, db: AsyncSession = Depends(get_db)):
         state=lead.state,
         zip_code=lead.zip_code,
         county=lead.county,
-        country=lead.country,
+        country=lead.country or "US",
         parcel_id=lead.parcel_id,
         property_type=lead.property_type,
         acreage=lead.acreage,
@@ -131,9 +209,14 @@ async def get_lead(lead_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/", response_model=LeadResponse, status_code=201)
-async def create_lead(lead_data: LeadCreate, db: AsyncSession = Depends(get_db)):
+async def create_lead(
+    lead_data: Union[LeadCreate, LeadCreateFrontend],
+    db: AsyncSession = Depends(get_db)
+):
     """Create a new lead"""
-    import uuid
+
+    if isinstance(lead_data, LeadCreateFrontend):
+        lead_data = lead_data.to_lead_create()
 
     new_lead = Lead(
         id=uuid.uuid4(),
@@ -141,7 +224,7 @@ async def create_lead(lead_data: LeadCreate, db: AsyncSession = Depends(get_db))
         organization_id=uuid.UUID("12345678-1234-5678-9abc-123456789012"),
         first_name=lead_data.first_name,
         last_name=lead_data.last_name,
-        full_name=f"{lead_data.first_name} {lead_data.last_name}",
+        full_name=lead_data.full_name or f"{lead_data.first_name} {lead_data.last_name}",
         phone1=lead_data.phone1,
         phone2=lead_data.phone2,
         phone3=lead_data.phone3,
@@ -185,7 +268,7 @@ async def create_lead(lead_data: LeadCreate, db: AsyncSession = Depends(get_db))
         state=new_lead.state,
         zip_code=new_lead.zip_code,
         county=new_lead.county,
-        country=new_lead.country,
+        country=new_lead.country or "US",
         parcel_id=new_lead.parcel_id,
         property_type=new_lead.property_type,
         acreage=new_lead.acreage,
@@ -207,8 +290,9 @@ async def update_lead(lead_id: str, lead_data: LeadUpdate, db: AsyncSession = De
     """Update an existing lead"""
     from sqlalchemy import select
 
+    lead_uuid = _parse_uuid(lead_id, "lead_id")
     result = await db.execute(
-        select(Lead).where(Lead.id == lead_id)
+        select(Lead).where(Lead.id == lead_uuid)
     )
     lead = result.scalar_one_or_none()
 
@@ -216,24 +300,15 @@ async def update_lead(lead_id: str, lead_data: LeadUpdate, db: AsyncSession = De
         raise HTTPException(status_code=404, detail="Lead not found")
 
     # Update fields that are provided
-    update_data = lead_data.dict(exclude_unset=True)
-    field_mapping = {
-        "owner_name": "full_name",
-        "phone_number_1": "phone1",
-        "phone_number_2": "phone2",
-        "phone_number_3": "phone3",
-        "street_address": "address_line1",
-        "zip": "zip_code",
-        "property_value": "estimated_value",
-        "square_feet": None,  # Not in model
-        "lead_source": "lead_source",
-        "source_of_lead": "lead_source"
-    }
+    update_data = lead_data.model_dump(exclude_unset=True)
+    if "first_name" in update_data or "last_name" in update_data:
+        first_name = update_data.get("first_name", lead.first_name)
+        last_name = update_data.get("last_name", lead.last_name)
+        update_data.setdefault("full_name", f"{first_name} {last_name}".strip())
 
     for field, value in update_data.items():
-        model_field = field_mapping.get(field, field)
-        if hasattr(lead, model_field):
-            setattr(lead, model_field, value)
+        if hasattr(lead, field):
+            setattr(lead, field, value)
 
     await db.commit()
     await db.refresh(lead)
@@ -253,7 +328,7 @@ async def update_lead(lead_id: str, lead_data: LeadUpdate, db: AsyncSession = De
         state=lead.state,
         zip_code=lead.zip_code,
         county=lead.county,
-        country=lead.country,
+        country=lead.country or "US",
         parcel_id=lead.parcel_id,
         property_type=lead.property_type,
         acreage=lead.acreage,
@@ -275,8 +350,9 @@ async def delete_lead(lead_id: str, db: AsyncSession = Depends(get_db)):
     """Delete a lead"""
     from sqlalchemy import select
 
+    lead_uuid = _parse_uuid(lead_id, "lead_id")
     result = await db.execute(
-        select(Lead).where(Lead.id == lead_id)
+        select(Lead).where(Lead.id == lead_uuid)
     )
     lead = result.scalar_one_or_none()
 
@@ -375,3 +451,93 @@ async def execute_lead_import(
         "imported": imported,
         "errors": errors
     }
+
+
+@router.post("/import", response_model=LeadImportResult)
+async def import_leads(
+    file: UploadFile,
+    mappings: str = Form(...),
+    bulkTags: Optional[str] = Form(None),
+    autoTaggingEnabled: Optional[bool] = Form(False),
+    taggingOptions: Optional[str] = Form(None),
+    db: AsyncSession = Depends(get_db)
+):
+    """Execute CSV import using enhanced service (frontend-compatible)."""
+    try:
+        column_mappings = json.loads(mappings) if mappings else {}
+        column_mappings = _normalize_import_mappings(column_mappings)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid mappings payload")
+
+    try:
+        bulk_tags = json.loads(bulkTags) if bulkTags else []
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid bulkTags payload")
+
+    try:
+        tagging_options = json.loads(taggingOptions) if taggingOptions else {}
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid taggingOptions payload")
+
+    import_service = LeadImportService(db)
+    default_org_id = "12345678-1234-5678-9abc-123456789012"
+    default_user_id = "12345678-1234-5678-9abc-123456789013"
+
+    result = await import_service.execute_import(
+        file=file,
+        column_mappings=column_mappings,
+        skip_duplicates=True,
+        update_existing=False,
+        organization_id=default_org_id,
+        user_id=default_user_id,
+        bulk_tags=bulk_tags,
+        auto_tagging_enabled=autoTaggingEnabled,
+        tagging_options=tagging_options
+    )
+
+    return result
+
+
+@router.get("/import/{import_id}", response_model=LeadImportResult)
+async def get_import_status(
+    import_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get import status for progress tracking."""
+    import_service = LeadImportService(db)
+    default_org_id = "12345678-1234-5678-9abc-123456789012"
+    result = await import_service.get_import_status(import_id, default_org_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Import not found")
+    return result
+
+
+@router.put("/bulk")
+async def bulk_update_leads(
+    payload: BulkUpdateRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Bulk update leads."""
+    from sqlalchemy import select
+
+    lead_ids = []
+    for lead_id in payload.leadIds:
+        try:
+            lead_ids.append(uuid.UUID(str(lead_id)))
+        except ValueError:
+            continue
+
+    if not lead_ids:
+        return {"success": True, "updated": 0}
+
+    result = await db.execute(select(Lead).where(Lead.id.in_(lead_ids)))
+    leads = result.scalars().all()
+
+    for lead in leads:
+        for field, value in payload.updates.items():
+            if hasattr(lead, field):
+                setattr(lead, field, value)
+
+    await db.commit()
+
+    return {"success": True, "updated": len(leads)}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -13,13 +13,12 @@ import {
   TrendingUp,
   TrendingDown,
   RefreshCw,
-  Wifi,
   WifiOff,
   Clock,
   MessageSquare,
   BarChart3
 } from 'lucide-react'
-import { usePhoneNumbers, usePhoneNumberHealth, usePhoneNumberAnalytics } from '@/hooks/use-api'
+import { usePhoneNumbers, usePhoneNumberHealth } from '@/hooks/use-api'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 
@@ -56,19 +55,24 @@ export function HealthMonitor() {
 
   const { data: phoneNumbersData } = usePhoneNumbers()
 
-  const phoneNumbers = phoneNumbersData || []
+  const phoneNumbers = (phoneNumbersData?.data || []) as any[]
 
   // Get health data for each phone number
-  const phoneIds = selectedPhoneId === 'all' ? phoneNumbers.map(p => p.id) : [selectedPhoneId]
+  const phoneIds = selectedPhoneId === 'all'
+    ? phoneNumbers.map(p => p.id)
+    : [selectedPhoneId]
 
   // Use individual health queries for each phone number
-  const healthQueries = phoneIds.map(phoneId => ({
-    phoneId,
-    ...usePhoneNumberHealth(parseInt(phoneId), {
+  const healthQueries = phoneIds.map(phoneId => {
+    const phoneIdValue = typeof phoneId === 'string' ? phoneId : phoneId.toString()
+    return {
+      phoneId: phoneIdValue,
+      ...usePhoneNumberHealth(parseInt(phoneIdValue, 10), {
       enabled: !!phoneId,
       refetchInterval: 30000 // Refetch every 30 seconds for real-time updates
-    })
-  }))
+      })
+    }
+  })
 
   const allHealthData = healthQueries.map(q => q.data).filter(Boolean)
 
@@ -76,11 +80,12 @@ export function HealthMonitor() {
   const healthMetrics: HealthMetric[] = phoneNumbers
     .filter(phone => selectedPhoneId === 'all' || phone.id === selectedPhoneId)
     .map(phone => {
-      const healthData = allHealthData.find(h => h.phoneId === phone.id)
+      const phoneIdValue = phone.id?.toString()
+      const healthData = allHealthData.find(h => h.phoneId === phoneIdValue)
 
       return {
         id: `health-${phone.id}`,
-        phoneId: phone.id,
+        phoneId: phoneIdValue,
         phoneNumber: phone.number || phone.phone_number,
         healthScore: healthData?.healthScore || phone.health_score || 0,
         status: healthData?.status || (
@@ -180,7 +185,7 @@ export function HealthMonitor() {
             <SelectContent>
               <SelectItem value="all">All Phone Numbers</SelectItem>
               {phoneNumbers.map(phone => (
-                <SelectItem key={phone.id} value={phone.id}>
+                <SelectItem key={phone.id} value={phone.id?.toString()}>
                   {phone.number || phone.phone_number}
                 </SelectItem>
               ))}

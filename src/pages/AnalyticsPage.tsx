@@ -32,7 +32,7 @@ import {
   Mail,
   Star
 } from 'lucide-react'
-import { useDashboardMetrics, useCampaignAnalytics, useLeadAnalytics, useMessageAnalytics, usePhoneHealthAnalytics, useTrendAnalytics, useROIAnalytics, useConversionFunnel, useCompareCampaigns } from '@/hooks/use-api'
+import { useDashboardMetrics, useCampaignAnalytics, useLeadAnalytics, useMessageAnalytics, usePhoneHealthAnalytics, useTrendAnalytics, useROIAnalytics, useConversionFunnel, useCompareCampaigns, useCampaigns } from '@/hooks/use-api'
 import { cn } from '@/lib/utils'
 import { format, subDays } from 'date-fns'
 import {
@@ -100,19 +100,34 @@ export function AnalyticsPage() {
   const [selectedCampaign, setSelectedCampaign] = useState<string>('all')
   const queryClient = useQueryClient()
 
-  // API hooks
+  // API hooks - Fetch campaigns first to get actual UUIDs
+  const { data: campaignsData, isLoading: isLoadingCampaigns } = useCampaigns()
+  const campaigns = Array.isArray(campaignsData?.data) ? campaignsData.data : []
+
+  // Get the first campaign's UUID for analytics, or undefined if no campaigns exist
+  const firstCampaignId = campaigns.length > 0 ? campaigns[0].id : undefined
+
   const { data: dashboardData, isLoading } = useDashboardMetrics()
-  const { data: campaignAnalyticsData } = useCampaignAnalytics(1, selectedDateRange) // Use a default campaign ID for general analytics
+  // Only fetch campaign analytics when we have a valid campaign UUID
+  const { data: campaignAnalyticsData } = useCampaignAnalytics(firstCampaignId || '', selectedDateRange, {
+    enabled: !!firstCampaignId
+  })
   const { data: leadAnalyticsData } = useLeadAnalytics(selectedDateRange)
   const { data: messageAnalyticsData } = useMessageAnalytics(selectedDateRange)
   const { data: phoneHealthData } = usePhoneHealthAnalytics()
   const { data: trendData } = useTrendAnalytics({ metric: 'delivery_rate', timeRange: selectedDateRange })
   const { data: roiData } = useROIAnalytics(selectedDateRange)
   const { data: funnelData } = useConversionFunnel(undefined, selectedDateRange)
-  const { data: comparisonData } = useCompareCampaigns([1, 2, 3, 4, 5]) // Mock campaign IDs
+  // Use actual campaign UUIDs for comparison (first 5 campaigns or fewer if less exist)
+  const comparisonCampaignIds = campaigns.slice(0, 5).map((c: any) => c.id)
+  const { data: comparisonData } = useCompareCampaigns(
+    comparisonCampaignIds.length > 0 ? comparisonCampaignIds : ['00000000-0000-0000-0000-000000000000'],
+    undefined,
+    { enabled: comparisonCampaignIds.length > 0 }
+  )
 
   // Define data variables first to avoid temporal dead zone
-  const campaigns = Array.isArray(campaignAnalyticsData?.data) ? campaignAnalyticsData.data : []
+  const campaignPerformanceList = Array.isArray(campaignAnalyticsData?.data) ? campaignAnalyticsData.data : []
   const leadData = leadAnalyticsData || {}
   const messageData = messageAnalyticsData || {}
   const phoneHealth = phoneHealthData || {}
@@ -149,8 +164,8 @@ export function AnalyticsPage() {
     roi: item.roi ?? 0,
     spend: item.spend ?? 0,
     revenue: item.revenue ?? 0
-  })) || campaigns.map(campaign => ({
-    campaign_name: campaign.name,
+  })) || campaigns.map((campaign: any) => ({
+    campaign_name: campaign.name || 'Campaign',
     roi: campaign.roi || Math.random() * 500,
     spend: campaign.spend || Math.random() * 10000,
     revenue: campaign.revenue || Math.random() * 50000
@@ -526,7 +541,7 @@ export function AnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {campaigns.slice(0, 5).map(campaign => (
+                {campaigns.slice(0, 5).map((campaign: any) => (
                   <div key={campaign.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center space-x-3">
                       <div>
@@ -589,7 +604,7 @@ export function AnalyticsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Campaigns</SelectItem>
-                {campaigns.map(campaign => (
+                {campaigns.map((campaign: any) => (
                   <SelectItem key={campaign.id} value={campaign.id}>
                     {campaign.name}
                   </SelectItem>
@@ -606,7 +621,7 @@ export function AnalyticsPage() {
               {campaigns.length > 0 ? (
                 <ScrollArea className="h-[500px]">
                   <div className="space-y-3">
-                    {campaigns.map(campaign => (
+                    {campaigns.map((campaign: any) => (
                       <div key={campaign.id} className="border rounded-lg p-4">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-start space-x-3">
@@ -697,15 +712,15 @@ export function AnalyticsPage() {
                       <div>
                         <div className="font-semibold">Positive ROI Campaigns</div>
                         <div className="text-sm text-muted-foreground">
-                          {campaigns.filter(c => c.roi > 0).length} campaigns
+                          {campaignPerformanceList.filter((c: any) => c.roi > 0).length} campaigns
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-green-600 text-xl">
                         {formatPercentage(
-                          campaigns.filter(c => c.roi > 0).reduce((sum, c) => sum + c.roi, 0) / 
-                          Math.max(campaigns.filter(c => c.roi > 0).length, 1)
+                          campaignPerformanceList.filter((c: any) => c.roi > 0).reduce((sum: number, c: any) => sum + (c.roi || 0), 0) /
+                          Math.max(campaignPerformanceList.filter((c: any) => c.roi > 0).length, 1)
                         )}
                       </div>
                       <div className="text-sm text-muted-foreground">Avg ROI</div>
@@ -718,15 +733,15 @@ export function AnalyticsPage() {
                       <div>
                         <div className="font-semibold">Negative ROI Campaigns</div>
                         <div className="text-sm text-muted-foreground">
-                          {campaigns.filter(c => c.roi < 0).length} campaigns
+                          {campaignPerformanceList.filter((c: any) => c.roi < 0).length} campaigns
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-red-600 text-xl">
                         {formatPercentage(
-                          campaigns.filter(c => c.roi < 0).reduce((sum, c) => sum + c.roi, 0) / 
-                          Math.max(campaigns.filter(c => c.roi < 0).length, 1)
+                          campaignPerformanceList.filter((c: any) => c.roi < 0).reduce((sum: number, c: any) => sum + (c.roi || 0), 0) /
+                          Math.max(campaignPerformanceList.filter((c: any) => c.roi < 0).length, 1)
                         )}
                       </div>
                       <div className="text-sm text-muted-foreground">Avg ROI</div>

@@ -38,7 +38,7 @@ export enum WebSocketEvent {
   PHONE_VOLUME_UPDATE = 'phone_volume_update',
 }
 
-export type WebSocketStatus = 'connected' | 'disconnected' | 'error' | 'reconnecting'
+export type WebSocketStatus = 'connected' | 'connecting' | 'disconnected' | 'error' | 'reconnecting'
 
 // Dashboard WebSocket Types
 export interface DashboardMetricsUpdate {
@@ -49,6 +49,7 @@ export interface DashboardMetricsUpdate {
   reply_rate: number
   phone_health: number
   timestamp: string
+  activities?: any[]
 }
 
 export interface DashboardActivityEvent {
@@ -96,8 +97,8 @@ export interface CampaignProgressUpdate {
 
 // Message WebSocket Types
 export interface NewMessageEvent {
-  conversation_id: number
-  message_id: number
+  conversation_id: string | number
+  message_id: string | number
   content: string
   direction: 'inbound' | 'outbound'
   sender: string
@@ -107,22 +108,22 @@ export interface NewMessageEvent {
 }
 
 export interface MessageStatusUpdate {
-  message_id: number
-  conversation_id: number
+  message_id: string | number
+  conversation_id: string | number
   status: 'queued' | 'sent' | 'delivered' | 'failed' | 'read'
   timestamp: string
   error_message?: string
 }
 
 export interface TypingIndicatorEvent {
-  conversation_id: number
-  user_id?: number
+  conversation_id: string | number
+  user_id?: string | number
   is_typing: boolean
   timestamp: string
 }
 
 export interface ConversationUpdate {
-  conversation_id: number
+  conversation_id: string | number
   unread_count: number
   last_message_at: string
   status: 'active' | 'archived'
@@ -131,19 +132,19 @@ export interface ConversationUpdate {
 
 // Lead WebSocket Types
 export interface LeadCreated {
-  lead_id: number
+  lead_id: string | number
   data: any
   timestamp: string
 }
 
 export interface LeadUpdated {
-  lead_id: number
+  lead_id: string | number
   changes: Record<string, any>
   timestamp: string
 }
 
 export interface LeadDeleted {
-  lead_id: number
+  lead_id: string | number
   timestamp: string
 }
 

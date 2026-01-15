@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -7,13 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
 import { Copy, Eye, EyeOff, RefreshCw } from 'lucide-react'
-import { useMutation } from '@tanstack/react-query'
 import { useCreateWebhook, useTestWebhook, useTestWebhookByUrl } from '@/hooks/use-api'
 import { toast } from 'sonner'
 
@@ -78,8 +76,9 @@ export function WebhookWizard({ onComplete, onCancel }: WebhookWizardProps) {
       toast.success('Webhook created successfully!')
       onComplete?.()
     },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to create webhook')
+    onError: (error: unknown) => {
+      const err = error instanceof Error ? error : new Error(String(error))
+      toast.error(err.message || 'Failed to create webhook')
     },
   })
 
@@ -87,8 +86,9 @@ export function WebhookWizard({ onComplete, onCancel }: WebhookWizardProps) {
     onSuccess: () => {
       toast.success('Test webhook sent successfully!')
     },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to test webhook')
+    onError: (error: unknown) => {
+      const err = error instanceof Error ? error : new Error(String(error))
+      toast.error(err.message || 'Failed to test webhook')
       setTesting(false)
     },
   })
@@ -97,8 +97,9 @@ export function WebhookWizard({ onComplete, onCancel }: WebhookWizardProps) {
     onSuccess: () => {
       toast.success('Test webhook sent successfully!')
     },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to test webhook')
+    onError: (error: unknown) => {
+      const err = error instanceof Error ? error : new Error(String(error))
+      toast.error(err.message || 'Failed to test webhook')
       setTesting(false)
     },
   })
@@ -127,12 +128,12 @@ export function WebhookWizard({ onComplete, onCancel }: WebhookWizardProps) {
     setTesting(true)
 
     // Test webhook by URL (pre-creation testing)
-    testWebhookByUrlMutation.mutate(webhookUrl)
+    ;(testWebhookByUrlMutation as any).mutate(webhookUrl)
   }
 
   const handleCreate = () => {
     const formData = form.getValues()
-    createWebhookMutation.mutate(formData)
+    ;(createWebhookMutation as any).mutate(formData)
   }
 
   const copySecret = () => {
@@ -172,12 +173,11 @@ export function WebhookWizard({ onComplete, onCancel }: WebhookWizardProps) {
       </div>
 
       <div>
-        <Label htmlFor="description">Description (Optional)</Label>
+        <Label htmlFor="webhookDescription">Description (Optional)</Label>
         <Textarea
-          id="description"
+          id="webhookDescription"
           placeholder="Describe what this webhook does..."
           rows={3}
-          {...form.register('description')}
           className="mt-1"
         />
       </div>
@@ -243,7 +243,12 @@ export function WebhookWizard({ onComplete, onCancel }: WebhookWizardProps) {
                     />
                     <div className="flex-1">
                       <Label htmlFor={event.id} className="font-medium">
-                        {event.id.split('.').pop().charAt(0).toUpperCase() + event.id.split('.').pop().slice(1)}
+                        {(() => {
+                          const parts = event.id.split('.')
+                          const last = parts[parts.length - 1]
+                          if (!last) return event.id
+                          return last.charAt(0).toUpperCase() + last.slice(1)
+                        })()}
                       </Label>
                       <p className="text-sm text-gray-600">{event.description}</p>
                     </div>
@@ -263,7 +268,10 @@ export function WebhookWizard({ onComplete, onCancel }: WebhookWizardProps) {
                 const event = availableEvents.find(e => e.id === eventId)
                 return (
                   <Badge key={eventId} variant="secondary" className="text-xs">
-                    {event?.category}: {event?.id.split('.').pop()}
+                    {event?.category}: {(() => {
+                      const parts = event?.id.split('.') || []
+                      return parts[parts.length - 1] || eventId
+                    })()}
                   </Badge>
                 )
               })}
@@ -453,7 +461,10 @@ export function WebhookWizard({ onComplete, onCancel }: WebhookWizardProps) {
                 const event = availableEvents.find(e => e.id === eventId)
                 return (
                   <Badge key={eventId} variant="outline">
-                    {event?.category}: {event?.id.split('.').pop()}
+                    {event?.category}: {(() => {
+                      const parts = event?.id.split('.') || []
+                      return parts[parts.length - 1] || eventId
+                    })()}
                   </Badge>
                 )
               })}

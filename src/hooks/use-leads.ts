@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { leadsApi } from '@/lib/api'
-import { Lead, LeadFilter } from '@/types/lead'
+import { Lead } from '@/types/lead'
 
 export function useLeads(params?: {
   page?: number
@@ -76,30 +76,12 @@ export function useImportLeads() {
   })
 }
 
-export function useExportLeads() {
-  return useMutation({
-    mutationFn: ({ filters, format }: { filters: LeadFilter; format: 'csv' | 'excel' }) =>
-      leadsApi.exportLeads(filters, format),
-  })
-}
-
 export function useBulkUpdateLeads() {
   const queryClient = useQueryClient()
   
   return useMutation({
     mutationFn: ({ leadIds, updates }: { leadIds: number[]; updates: any }) =>
       leadsApi.bulkUpdate(leadIds, updates),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['leads'])
-    },
-  })
-}
-
-export function useBulkDeleteLeads() {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: leadsApi.bulkDelete,
     onSuccess: () => {
       queryClient.invalidateQueries(['leads'])
     },

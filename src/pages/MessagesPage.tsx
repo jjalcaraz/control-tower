@@ -49,8 +49,8 @@ export function MessagesPage() {
       queryClient.invalidateQueries({ queryKey: ['conversations', { starred: true }] })
 
       // If we have a selected conversation, update its messages directly for real-time updates
-      if (selectedConversation && liveUpdates.conversation_id === parseInt(selectedConversation)) {
-        queryClient.setQueryData(['conversations', parseInt(selectedConversation)], (old: any) => {
+      if (selectedConversation && String(liveUpdates.conversation_id) === selectedConversation) {
+        queryClient.setQueryData(['conversations', selectedConversation], (old: any) => {
           if (!old) return old
           return {
             ...old,
@@ -59,7 +59,7 @@ export function MessagesPage() {
         })
 
         // Also invalidate to ensure data consistency
-        queryClient.invalidateQueries({ queryKey: ['conversations', parseInt(selectedConversation)] })
+        queryClient.invalidateQueries({ queryKey: ['conversations', selectedConversation] })
       }
     }
   }, [liveUpdates, selectedConversation, queryClient])
@@ -75,7 +75,9 @@ export function MessagesPage() {
   const unreadConversations = normalizeConversationList(unreadConversationsData)
   const archivedConversations = normalizeConversationList(archivedConversationsData)
   const starredConversations = normalizeConversationList(starredConversationsData)
-  const selectedConversationData = conversationsList.find(conv => conv.id.toString() === selectedConversation)
+  const selectedConversationData = conversationsList.find((conv: any) =>
+    String(conv.id ?? conv.conversation_id ?? conv.lead_id) === selectedConversation
+  )
   
   // Archive and delete mutations
   const archiveConversation = useArchiveConversation()
@@ -83,7 +85,7 @@ export function MessagesPage() {
 
   // Fetch conversation data with messages when a conversation is selected
   const { data: conversationData, isLoading: isLoadingConversation } = useConversation(
-    selectedConversation ? parseInt(selectedConversation) : 0,
+    selectedConversation || '',
     { enabled: !!selectedConversation }
   )
 
@@ -100,6 +102,22 @@ export function MessagesPage() {
     : (leadsSearchData?.data || leadsSearchData?.results || [])
 
   const normalizedLeadSearch = leadsSearchList.map((lead: any) => {
+    if (lead?.first_name || lead?.phone1) {
+      return {
+        ...lead,
+        firstName: lead.first_name || '',
+        lastName: lead.last_name || '',
+        primaryPhone: lead.phone1,
+        secondaryPhone: lead.phone2,
+        alternatePhone: lead.phone3,
+        phone: lead.phone1,
+        address: {
+          city: lead.city,
+          state: lead.state,
+          county: lead.county || '',
+        }
+      }
+    }
     if (!lead?.owner_name) {
       return lead
     }
@@ -138,7 +156,9 @@ export function MessagesPage() {
 
   // Create lead data from selected conversation with complete lead info if available
   const currentLead = selectedConversationData ? {
-    id: matchingLead?.id?.toString() || selectedConversationData.lead_id?.toString() || selectedConversationData.id.toString(),
+    id: matchingLead?.id?.toString() ||
+      selectedConversationData.lead_id?.toString() ||
+      (selectedConversationData.id ? selectedConversationData.id.toString() : ''),
     firstName: matchingLead?.firstName || selectedConversationData.lead_name?.split(' ')[0] || 'Unknown',
     lastName: matchingLead?.lastName || selectedConversationData.lead_name?.split(' ').slice(1).join(' ') || '',
     phone: selectedConversationData.lead_phone || selectedConversationData.phone_number || selectedConversationData.leadPhone || selectedConversationData.phoneNumber || '',
@@ -164,7 +184,7 @@ export function MessagesPage() {
 
       if (selectedConversation) {
         // Send message to specific conversation
-        const response = await messagesApi.sendMessage(parseInt(selectedConversation), content)
+        const response = await messagesApi.sendMessage(selectedConversation, content)
         console.log('Message sent successfully to conversation:', response)
 
         // After interceptor processing, success is determined by successful promise resolution
@@ -190,7 +210,7 @@ export function MessagesPage() {
   const handleArchiveConversation = async (conversationId: string) => {
     try {
       console.log('Archiving conversation:', conversationId)
-      await archiveConversation.mutateAsync(parseInt(conversationId))
+      await archiveConversation.mutateAsync(conversationId)
       setSelectedConversation(null)
       console.log('Conversation archived successfully')
     } catch (error) {
@@ -201,7 +221,7 @@ export function MessagesPage() {
   const handleDeleteConversation = async (conversationId: string) => {
     try {
       console.log('Deleting conversation:', conversationId)
-      await deleteConversation.mutateAsync(parseInt(conversationId))
+      await deleteConversation.mutateAsync(conversationId)
       setSelectedConversation(null)
       console.log('Conversation deleted successfully')
     } catch (error) {
@@ -223,8 +243,8 @@ export function MessagesPage() {
   // Stats for header
   const stats = {
     totalConversations: conversationsList.length,
-    unreadCount: conversationsList.filter(c => c.unreadCount > 0).length,
-    activeToday: conversationsList.filter(c => {
+    unreadCount: conversationsList.filter((c: any) => c.unreadCount > 0).length,
+    activeToday: conversationsList.filter((c: any) => {
       const lastMessage = new Date(c.lastMessageAt)
       const today = new Date()
       return lastMessage.toDateString() === today.toDateString()
@@ -450,9 +470,8 @@ export function MessagesPage() {
                   try {
                     const content = typeof message === 'string' ? message : message.content
                     const recipients = typeof message === 'object' ? message.recipients : []
-                    const leadIds = typeof message === 'object' ? message.leadIds : []
 
-                    console.log('Sending broadcast message to:', { recipients, leadIds })
+                    console.log('Sending broadcast message to:', { recipients })
 
                     if (recipients && recipients.length > 0) {
                       // Send to specific recipients by phone number
@@ -461,10 +480,6 @@ export function MessagesPage() {
                         console.log(`Message sent to ${recipient}:`, response)
                       }
                       console.log('All specific messages sent successfully')
-                    } else if (leadIds && leadIds.length > 0) {
-                      // Send to specific recipients by lead IDs
-                      await messagesApi.broadcastMessage({ content, leadIds })
-                      console.log('Broadcast to lead IDs sent successfully')
                     } else {
                       // Default broadcast behavior (to all leads)
                       await messagesApi.broadcastMessage({ content })

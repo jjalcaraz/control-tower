@@ -17,7 +17,7 @@ import {
   User
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Logo, LogoCompact } from '@/components/ui/logo'
+import { Logo } from '@/components/ui/logo'
 import { useAuth } from '@/hooks/use-auth'
 
 interface MainLayoutProps {

@@ -16,16 +16,10 @@ import {
   Download,
   Upload,
   FileText,
-  Clock,
-  User,
-  Phone,
-  MessageSquare,
   Ban,
   Eye,
-  Filter,
   Calendar,
   BarChart3,
-  TrendingUp,
   Users,
   Activity,
   Shield,
@@ -76,6 +70,9 @@ interface OptOut {
   status: 'processed' | 'pending' | 'error'
   source: string
   reason?: string
+  phone_number?: string
+  opt_out_date?: string
+  campaign_name?: string
 }
 
 interface AuditEntry {
@@ -84,11 +81,16 @@ interface AuditEntry {
   event: string
   actor: string
   resource: string
-  details: string
+  details: string | { description?: string }
   ipAddress?: string
   userAgent?: string
   outcome: 'success' | 'failure' | 'warning'
   metadata?: Record<string, any>
+  action?: string
+  user_email?: string
+  resource_type?: string
+  resource_id?: string | number
+  ip_address?: string
 }
 
 interface ComplianceReport {
@@ -132,7 +134,7 @@ export function CompliancePage() {
   const reportDateParams = getReportDateRange()
 
   // API hooks
-  const { data: complianceData, isLoading } = useComplianceDashboard()
+  const { data: complianceData } = useComplianceDashboard()
   const { data: optOutsData, refetch: refetchOptOuts } = useOptOuts()
   const { data: auditTrailData } = useAuditTrail()
   const { data: reportsData, refetch: refetchReports } = useComplianceReports()
@@ -142,7 +144,8 @@ export function CompliancePage() {
       refetchReports()
     },
     onError: (error) => {
-      toast.error(error.message || 'Failed to generate report')
+      const message = error instanceof Error ? error.message : 'Failed to generate report'
+      toast.error(message)
     },
   })
 
@@ -168,7 +171,8 @@ export function CompliancePage() {
       toast.success('Report downloaded successfully')
     },
     onError: (error) => {
-      toast.error(error.message || 'Failed to download report')
+      const message = error instanceof Error ? error.message : 'Failed to download report'
+      toast.error(message)
     },
   })
 
@@ -184,14 +188,15 @@ export function CompliancePage() {
       refetchOptOuts()
     },
     onError: (error) => {
-      toast.error(error.message || 'Failed to process opt-out')
+      const message = error instanceof Error ? error.message : 'Failed to process opt-out'
+      toast.error(message)
     },
   })
 
   const complianceOverview = (complianceData?.data || complianceData || {}) as ComplianceOverview
-  const optOuts = optOutsData?.data || []
-  const auditEntries = auditTrailData?.data || []
-  const reports = reportsData?.data || []
+  const optOuts = (optOutsData?.data || []) as OptOut[]
+  const auditEntries = (auditTrailData?.data || []) as AuditEntry[]
+  const reports = (reportsData?.data || []) as ComplianceReport[]
 
   // Filter audit entries
   const filteredAuditEntries = auditEntries.filter(entry => {
@@ -233,15 +238,6 @@ export function CompliancePage() {
       error: 'bg-red-100 text-red-800'
     }
     return colors[status as keyof typeof colors] || colors.pending
-  }
-
-  const getAuditOutcomeColor = (outcome: string) => {
-    const colors = {
-      success: 'text-green-600',
-      failure: 'text-red-600',
-      warning: 'text-yellow-600'
-    }
-    return colors[outcome as keyof typeof colors] || colors.success
   }
 
   const getAuditOutcomeIcon = (outcome: string) => {
@@ -583,7 +579,9 @@ export function CompliancePage() {
                             </span>
                           </div>
                           <span className="text-sm text-muted-foreground">
-                            {format(new Date(optOut.opt_out_date), 'MMM d, HH:mm')}
+                            {optOut.opt_out_date || optOut.timestamp
+                              ? format(new Date(optOut.opt_out_date || optOut.timestamp), 'MMM d, HH:mm')
+                              : 'N/A'}
                           </span>
                         </div>
                         
@@ -666,7 +664,11 @@ export function CompliancePage() {
                               <div className="text-sm text-muted-foreground mb-2">
                                 Resource: {entry.resource_type} #{entry.resource_id}
                               </div>
-                              <div className="text-sm">{entry.details?.description || 'No details available'}</div>
+                              <div className="text-sm">
+                                {typeof entry.details === 'string'
+                                  ? entry.details
+                                  : entry.details?.description || 'No details available'}
+                              </div>
                               {entry.ip_address && (
                                 <div className="text-xs text-muted-foreground mt-1">
                                   IP: {entry.ip_address}

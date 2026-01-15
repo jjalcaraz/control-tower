@@ -1,5 +1,5 @@
 export interface Lead {
-  id: number
+  id: string | number
   firstName: string
   lastName: string
   primaryPhone: string
@@ -30,7 +30,7 @@ export interface Lead {
 }
 
 export interface LeadList {
-  id: number
+  id: string | number
   name: string
   description: string
   leadCount: number
@@ -40,7 +40,7 @@ export interface LeadList {
 }
 
 export interface LeadImport {
-  id: number
+  id: string | number
   fileName: string
   status: 'processing' | 'completed' | 'failed'
   totalRows: number

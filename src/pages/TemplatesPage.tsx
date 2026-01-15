@@ -105,13 +105,17 @@ export function TemplatesPage() {
     loadTemplates()
   }, [selectedCategory])
 
+  const isSuccessResponse = (response: any) =>
+    response?.status >= 200 && response?.status < 300 && (response?.data?.success ?? true)
+
   const loadTemplates = async () => {
     setIsLoading(true)
     try {
       const params = selectedCategory === 'all' ? {} : { category: selectedCategory }
       const response = await api.get('/templates', { params })
-      if (response.data.data) {
-        setTemplates(response.data.data)
+      const templatesData = response.data?.data || response.data
+      if (Array.isArray(templatesData)) {
+        setTemplates(templatesData)
       }
     } catch (error) {
       console.error('Failed to load templates:', error)
@@ -127,7 +131,7 @@ export function TemplatesPage() {
         content: formData.content,
         category: formData.category
       })
-      if (response.data.success) {
+      if (isSuccessResponse(response)) {
         await loadTemplates()
         setIsCreating(false)
         resetForm()
@@ -148,7 +152,7 @@ export function TemplatesPage() {
         category: formData.category,
         is_active: formData.isActive
       })
-      if (response.data.success) {
+      if (isSuccessResponse(response)) {
         await loadTemplates()
         setIsEditing(false)
         setSelectedTemplate(null)
@@ -160,10 +164,10 @@ export function TemplatesPage() {
     }
   }
 
-  const deleteTemplate = async (templateId: number) => {
+  const deleteTemplate = async (templateId: string | number) => {
     try {
       const response = await api.delete(`/templates/${templateId}`)
-      if (response.data.success) {
+      if (isSuccessResponse(response)) {
         await loadTemplates()
         console.log('Template deleted successfully')
       }
@@ -172,11 +176,11 @@ export function TemplatesPage() {
     }
   }
 
-  const previewTemplate = async (templateId: number) => {
+  const previewTemplate = async (templateId: string | number) => {
     try {
       const response = await api.get(`/templates/${templateId}/preview`)
-      if (response.data.success) {
-        setPreview(response.data.data.preview_content)
+      if (isSuccessResponse(response)) {
+        setPreview(response.data?.data?.preview_content || '')
         setShowPreview(true)
       }
     } catch (error) {

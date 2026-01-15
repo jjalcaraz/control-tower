@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,10 +11,8 @@ import {
   CheckCircle,
   XCircle,
   FileText,
-  Users,
   Clock,
   Scale,
-  Eye,
   Settings,
   RefreshCw
 } from 'lucide-react'
@@ -60,7 +58,7 @@ interface PhoneCompliance {
 }
 
 export function ComplianceManagement() {
-  const [selectedPhoneId, setSelectedPhoneId] = useState<string>('all')
+  const [selectedPhoneId] = useState<string>('all')
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const { data: phoneNumbersData } = usePhoneNumbers()
@@ -68,7 +66,7 @@ export function ComplianceManagement() {
     refetchInterval: 60000 // Refetch every minute
   })
 
-  const phoneNumbers = phoneNumbersData?.data || []
+  const phoneNumbers = (phoneNumbersData?.data || []) as any[]
   const complianceData = complianceDashboardData?.data
 
   // Transform API data to our component format

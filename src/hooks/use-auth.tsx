@@ -96,11 +96,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const verifyTwoFactor = async (token: string) => {
+    void token
     // Mock verification
     return Promise.resolve()
   }
 
   const disableTwoFactor = async (token: string) => {
+    void token
     // Mock disable
     return Promise.resolve()
   }

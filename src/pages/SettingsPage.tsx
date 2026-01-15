@@ -59,8 +59,11 @@ export function SettingsPage() {
       if (response.data.success) {
         setTwilioConfig(response.data.data)
       }
-    } catch (error) {
-      console.error('Failed to load Twilio config:', error)
+    } catch (error: any) {
+      // 400 is expected when Twilio is not configured, only log unexpected errors
+      if (error.response?.status !== 400) {
+        console.error('Failed to load Twilio config:', error)
+      }
     } finally {
       setIsLoading(false)
     }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -6,9 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   BarChart3,
   TrendingUp,
-  TrendingDown,
   MessageSquare,
-  Phone,
   Clock,
   DollarSign,
   Users,
@@ -17,8 +15,6 @@ import {
   Calendar
 } from 'lucide-react'
 import { usePhoneNumbers, usePhoneNumberAnalytics } from '@/hooks/use-api'
-import { format, subDays } from 'date-fns'
-import { cn } from '@/lib/utils'
 
 interface AnalyticsData {
   phoneId: string
@@ -68,19 +64,22 @@ export function PhoneNumberAnalytics() {
 
   const { data: phoneNumbersData } = usePhoneNumbers()
 
-  const phoneNumbers = phoneNumbersData || []
+  const phoneNumbers = (phoneNumbersData?.data || []) as any[]
 
   // Get analytics data for each phone number
   const phoneIds = selectedPhoneId === 'all' ? phoneNumbers.map(p => p.id) : [selectedPhoneId]
 
   // Use individual analytics queries for each phone number
-  const analyticsQueries = phoneIds.map(phoneId => ({
-    phoneId,
-    ...usePhoneNumberAnalytics(parseInt(phoneId), timeRange, {
+  const analyticsQueries = phoneIds.map(phoneId => {
+    const phoneIdValue = typeof phoneId === 'string' ? phoneId : phoneId.toString()
+    return {
+      phoneId: phoneIdValue,
+      ...usePhoneNumberAnalytics(parseInt(phoneIdValue, 10), timeRange, {
       enabled: !!phoneId,
       staleTime: 1000 * 60 * 5 // Cache for 5 minutes
-    })
-  }))
+      })
+    }
+  })
 
   const allAnalyticsData = analyticsQueries.map(q => q.data).filter(Boolean)
 
@@ -88,7 +87,8 @@ export function PhoneNumberAnalytics() {
   const allAnalytics: AnalyticsData[] = phoneNumbers
     .filter(phone => selectedPhoneId === 'all' || phone.id === selectedPhoneId)
     .map(phone => {
-      const analyticsData = allAnalyticsData.find(a => a.phoneId === phone.id)
+      const phoneIdValue = phone.id?.toString()
+      const analyticsData = allAnalyticsData.find(a => a.phoneId === phoneIdValue)
       const days = parseInt(timeRange) || 30
 
       // Calculate metrics from available data or use defaults
@@ -97,7 +97,7 @@ export function PhoneNumberAnalytics() {
       const failedMessages = totalMessages - deliveredMessages
 
       return {
-        phoneId: phone.id,
+        phoneId: phoneIdValue,
         phoneNumber: phone.number || phone.phone_number,
         timeRange,
         metrics: {
@@ -181,7 +181,7 @@ export function PhoneNumberAnalytics() {
             <SelectContent>
               <SelectItem value="all">All Phone Numbers</SelectItem>
               {phoneNumbers.map(phone => (
-                <SelectItem key={phone.id} value={phone.id}>
+                <SelectItem key={phone.id} value={phone.id?.toString()}>
                   {phone.number || phone.phone_number}
                 </SelectItem>
               ))}

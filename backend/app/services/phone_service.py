@@ -2,7 +2,7 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.models.phone_number import PhoneNumber
 from app.models.message import Message
@@ -61,7 +61,7 @@ class PhoneService:
             "daily_cap": 100,
             "mps_current": 1,
             "mps_limit": 1,
-            "last_activity": datetime.utcnow().isoformat(),
+            "last_activity": datetime.now(timezone.utc).isoformat(),
             "performance_trend": "stable",
             "recommendations": []
         }

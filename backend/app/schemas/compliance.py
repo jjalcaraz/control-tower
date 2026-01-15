@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict, field_serializer
 from datetime import datetime
 
 
@@ -10,8 +10,10 @@ class OptOutCreate(BaseModel):
     reason: Optional[str] = None
     campaign_id: Optional[str] = Field(None, alias="campaignId")
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(
+        populate_by_name=True,
+        from_attributes=True
+    )
 
 
 class OptOutUpdate(BaseModel):
@@ -31,9 +33,8 @@ class OptOutResponse(BaseModel):
     created_at: datetime
     opt_out_date: Optional[datetime] = None
     campaign_name: Optional[str] = None
-    
-    class Config:
-        from_attributes = True
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AuditEventResponse(BaseModel):
@@ -47,9 +48,8 @@ class AuditEventResponse(BaseModel):
     details: Dict[str, Any]
     compliance_status: str
     created_at: datetime
-    
-    class Config:
-        from_attributes = True
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ComplianceReportResponse(BaseModel):

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import * as mockData from '@/lib/mock-data'
 
 interface MockApiOptions {
@@ -71,7 +71,7 @@ export function useMockLeads(params?: { page?: number; limit?: number; search?: 
       leads = leads.filter(lead =>
         lead.firstName.toLowerCase().includes(params.search!.toLowerCase()) ||
         lead.lastName.toLowerCase().includes(params.search!.toLowerCase()) ||
-        lead.email.toLowerCase().includes(params.search!.toLowerCase())
+        lead.email?.toLowerCase().includes(params.search!.toLowerCase())
       )
     }
 

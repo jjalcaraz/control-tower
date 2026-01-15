@@ -41,9 +41,41 @@ const normalizeLeadData = (rawData: any) => {
 
   // Transform real API data to match frontend expectations
   return leadsArray.map(lead => {
-    // Check if this is real API data (has owner_name) or mock data (has firstName)
+    if (lead.first_name || lead.phone1) {
+      return {
+        ...lead,
+        firstName: lead.first_name || '',
+        lastName: lead.last_name || '',
+        primaryPhone: lead.phone1,
+        secondaryPhone: lead.phone2,
+        alternatePhone: lead.phone3,
+        phone: lead.phone1,
+        fullName: lead.full_name || `${lead.first_name || ''} ${lead.last_name || ''}`.trim(),
+        address: {
+          street: lead.address_line1,
+          city: lead.city,
+          state: lead.state,
+          zip: lead.zip_code,
+          county: lead.county,
+        },
+        property: lead.property_type ? {
+          propertyType: lead.property_type,
+          acreage: lead.acreage,
+          estimatedValue: lead.estimated_value,
+          parcelId: lead.parcel_id,
+        } : undefined,
+        status: lead.status || 'new',
+        leadScore: lead.lead_score || 'cold',
+        tags: lead.tags || [],
+        notes: lead.notes || '',
+        createdAt: lead.created_at,
+        updatedAt: lead.updated_at,
+      }
+    }
+
+    // Check for legacy API shape
     if (lead.owner_name) {
-      // Transform real API data to frontend format
+      // Transform legacy API data to frontend format
       return {
         ...lead,
         firstName: lead.owner_name ? lead.owner_name.split(' ')[0] : '',
@@ -78,6 +110,31 @@ const normalizeLeadData = (rawData: any) => {
     }
   })
 }
+
+const toBackendLeadPayload = (lead: any) => ({
+  first_name: lead.firstName ?? lead.first_name ?? '',
+  last_name: lead.lastName ?? lead.last_name ?? '',
+  phone1: lead.primaryPhone ?? lead.phone1 ?? lead.phone ?? '',
+  phone2: lead.secondaryPhone ?? lead.phone2 ?? undefined,
+  phone3: lead.alternatePhone ?? lead.phone3 ?? undefined,
+  email: lead.email ?? undefined,
+  address_line1: lead.street ?? lead.address?.street ?? lead.address_line1 ?? undefined,
+  address_line2: lead.address_line2 ?? undefined,
+  city: lead.city ?? lead.address?.city ?? undefined,
+  state: lead.state ?? lead.address?.state ?? undefined,
+  zip_code: lead.zip ?? lead.address?.zip ?? undefined,
+  county: lead.county ?? lead.address?.county ?? undefined,
+  parcel_id: lead.parcelId ?? lead.property?.parcelId ?? lead.parcel_id ?? undefined,
+  property_type: lead.propertyType ?? lead.property?.propertyType ?? lead.property_type ?? undefined,
+  acreage: lead.acreage ?? lead.property?.acreage ?? undefined,
+  estimated_value: lead.estimatedValue ?? lead.property?.estimatedValue ?? lead.estimated_value ?? undefined,
+  lead_source: lead.leadSource ?? lead.lead_source ?? undefined,
+  lead_score: lead.leadScore ?? lead.lead_score ?? undefined,
+  status: lead.status ?? undefined,
+  consent_status: lead.consent_status ?? undefined,
+  tags: lead.tags ?? undefined,
+  notes: lead.notes ?? undefined,
+})
 
 const mockLeads = [
   {
@@ -173,7 +230,7 @@ interface LeadFilters {
 
 export function LeadsPage() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedLeads, setSelectedLeads] = useState<number[]>([])
+  const [selectedLeads, setSelectedLeads] = useState<string[]>([])
   const [showFilters, setShowFilters] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [showAddLeadDialog, setShowAddLeadDialog] = useState(false)
@@ -252,9 +309,9 @@ export function LeadsPage() {
     }
   }
 
-  const handleSelectLead = (leadId: number) => {
-    setSelectedLeads(prev => 
-      prev.includes(leadId) 
+  const handleSelectLead = (leadId: string) => {
+    setSelectedLeads(prev =>
+      prev.includes(leadId)
         ? prev.filter(id => id !== leadId)
         : [...prev, leadId]
     )
@@ -264,7 +321,7 @@ export function LeadsPage() {
     setSelectedLeads(
       selectedLeads.length === leads.length 
         ? [] 
-        : leads.map(lead => lead.id)
+        : leads.map(lead => String(lead.id))
     )
   }
 
@@ -671,8 +728,8 @@ export function LeadsPage() {
                     <tr key={lead.id} className="border-b hover:bg-gray-50">
                       <td className="p-2">
                         <Checkbox
-                          checked={selectedLeads.includes(lead.id)}
-                          onCheckedChange={() => handleSelectLead(lead.id)}
+                          checked={selectedLeads.includes(String(lead.id))}
+                          onCheckedChange={() => handleSelectLead(String(lead.id))}
                         />
                       </td>
                       <td className="p-2">
@@ -684,7 +741,7 @@ export function LeadsPage() {
                         </div>
                         {lead.tags && lead.tags.length > 0 && (
                           <div className="flex space-x-1 mt-1">
-                            {lead.tags.slice(0, 2).map(tag => (
+                            {lead.tags.slice(0, 2).map((tag: string) => (
                               <Badge key={tag} variant="outline" className="text-xs">
                                 {tag}
                               </Badge>
@@ -903,7 +960,7 @@ export function LeadsPage() {
         onOpenChange={setShowAddLeadDialog}
         onAddLead={async (newLead) => {
           try {
-            await createLeadMutation.mutateAsync(newLead)
+            await createLeadMutation.mutateAsync(toBackendLeadPayload(newLead))
             console.log('Lead created successfully:', newLead)
           } catch (error) {
             console.error('Failed to create lead:', error)
@@ -918,7 +975,7 @@ export function LeadsPage() {
         lead={selectedLeadForEdit}
         onUpdateLead={async (leadId, updatedLead) => {
           try {
-            await updateLeadMutation.mutateAsync({ id: leadId, data: updatedLead })
+            await updateLeadMutation.mutateAsync({ id: leadId, data: toBackendLeadPayload(updatedLead) })
             console.log('Lead updated successfully:', leadId, updatedLead)
           } catch (error) {
             console.error('Failed to update lead:', error)
@@ -941,9 +998,9 @@ export function LeadsPage() {
             // Determine which leads to export based on filter type
             let leadsToExport = leads
             
-            switch (exportOptions.filterType) {
+              switch (exportOptions.filterType) {
               case 'selected':
-                leadsToExport = leads.filter(lead => selectedLeads.includes(lead.id))
+                leadsToExport = leads.filter(lead => selectedLeads.includes(String(lead.id)))
                 break
               case 'filtered':
                 leadsToExport = filteredLeads

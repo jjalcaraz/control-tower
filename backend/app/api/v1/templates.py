@@ -12,6 +12,13 @@ from app.models import Template
 router = APIRouter()
 
 
+def _parse_template_id(template_id: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(template_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid template ID format.")
+
+
 class TemplateCreate(BaseModel):
     name: str
     category: str
@@ -30,7 +37,20 @@ class TemplateResponse(BaseModel):
     updated_at: Optional[datetime]
 
 
-@router.get("/", response_model=List[TemplateResponse])
+@router.get("/stats")
+async def get_template_stats():
+    """Get template stats (placeholder)."""
+    return {
+        "success": True,
+        "data": {
+            "total_templates": 0,
+            "active_templates": 0,
+            "usage_last_30_days": 0
+        }
+    }
+
+
+@router.get("/")
 async def list_templates(
     category: Optional[str] = None,
     is_active: Optional[bool] = None,
@@ -48,11 +68,21 @@ async def list_templates(
     if is_active is not None:
         query = query.where(Template.is_active == is_active)
 
+    from sqlalchemy import func
+
+    count_query = select(func.count(Template.id))
+    if category:
+        count_query = count_query.where(Template.category == category)
+    if is_active is not None:
+        count_query = count_query.where(Template.is_active == is_active)
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
     templates = result.scalars().all()
 
-    return [
+    data = [
         TemplateResponse(
             id=str(t.id),
             name=t.name,
@@ -67,14 +97,29 @@ async def list_templates(
         for t in templates
     ]
 
+    current_page = (skip // limit) + 1
+    total_pages = (total + limit - 1) // limit if limit else 1
+
+    return {
+        "success": True,
+        "data": data,
+        "pagination": {
+            "page": current_page,
+            "pageSize": limit,
+            "total": total,
+            "totalPages": total_pages
+        }
+    }
+
 
 @router.get("/{template_id}", response_model=TemplateResponse)
 async def get_template(template_id: str, db: AsyncSession = Depends(get_db)):
     """Get a specific template"""
     from sqlalchemy import select
 
+    template_uuid = _parse_template_id(template_id)
     result = await db.execute(
-        select(Template).where(Template.id == template_id)
+        select(Template).where(Template.id == template_uuid)
     )
     template = result.scalar_one_or_none()
 
@@ -141,8 +186,9 @@ async def update_template(
     """Update a template"""
     from sqlalchemy import select
 
+    template_uuid = _parse_template_id(template_id)
     result = await db.execute(
-        select(Template).where(Template.id == template_id)
+        select(Template).where(Template.id == template_uuid)
     )
     template = result.scalar_one_or_none()
 
@@ -169,13 +215,24 @@ async def update_template(
     )
 
 
+@router.put("/{template_id}", response_model=TemplateResponse)
+async def update_template_put(
+    template_id: str,
+    template_data: TemplateCreate,
+    db: AsyncSession = Depends(get_db)
+):
+    """Update a template (PUT alias)."""
+    return await update_template(template_id, template_data, db)
+
+
 @router.delete("/{template_id}", status_code=204)
 async def delete_template(template_id: str, db: AsyncSession = Depends(get_db)):
     """Delete a template"""
     from sqlalchemy import select
 
+    template_uuid = _parse_template_id(template_id)
     result = await db.execute(
-        select(Template).where(Template.id == template_id)
+        select(Template).where(Template.id == template_uuid)
     )
     template = result.scalar_one_or_none()
 
@@ -197,8 +254,9 @@ async def test_template(
     """Test template with variable substitution"""
     from sqlalchemy import select
 
+    template_uuid = _parse_template_id(template_id)
     result = await db.execute(
-        select(Template).where(Template.id == template_id)
+        select(Template).where(Template.id == template_uuid)
     )
     template = result.scalar_one_or_none()
 
@@ -213,4 +271,41 @@ async def test_template(
     return {
         "template_id": template_id,
         "rendered": rendered
+    }
+
+
+@router.get("/{template_id}/preview")
+async def preview_template(template_id: str, db: AsyncSession = Depends(get_db)):
+    """Preview a template with placeholder substitutions."""
+    from sqlalchemy import select
+
+    template_uuid = _parse_template_id(template_id)
+    result = await db.execute(
+        select(Template).where(Template.id == template_uuid)
+    )
+    template = result.scalar_one_or_none()
+
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    preview = template.content
+    preview = preview.replace("{first_name}", "Alex").replace("{last_name}", "Rivera")
+    preview = preview.replace("{county}", "Travis").replace("{brand}", "Control Tower")
+
+    return {"success": True, "data": {"preview_content": preview}}
+
+
+@router.get("/{template_id}/performance")
+async def get_template_performance(template_id: str, timeRange: Optional[str] = None):
+    """Get template performance metrics (placeholder)."""
+    return {
+        "success": True,
+        "data": {
+            "template_id": template_id,
+            "time_range": timeRange or "30d",
+            "sent": 0,
+            "delivered": 0,
+            "replies": 0,
+            "conversion_rate": 0
+        }
     }

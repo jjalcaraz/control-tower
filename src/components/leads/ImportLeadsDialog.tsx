@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect as ReactUseEffect } from 'react'
 import { Upload, AlertCircle, CheckCircle, Tag, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
@@ -13,11 +13,9 @@ import { useImportLeads, useImportStatus } from '@/hooks/use-api'
 import { cn } from '@/lib/utils'
 import {
   generateLeadTags,
-  batchTagLeads,
   LeadData,
   TaggingOptions,
   validateAndCleanTags,
-  tagsToString
 } from '@/lib/leadTagging'
 // import Papa from 'papaparse' // Commented out due to install issues
 
@@ -326,14 +324,17 @@ export function ImportLeadsDialog({ open, onOpenChange }: ImportLeadsDialogProps
         bulkTags: bulkTags,
         autoTaggingEnabled: autoTaggingEnabled,
         taggingOptions: taggingOptions
-      })
+      }) as { import_id?: string; successful_imports?: number; success_count?: number; failed_imports?: number; error_count?: number }
 
       // Capture import ID for progress tracking
       if (result.import_id) {
         setImportId(result.import_id)
       } else {
         // Fallback for immediate completion
-        setImportResult(result)
+        setImportResult({
+          successful: result.successful_imports ?? result.success_count ?? 0,
+          failed: result.failed_imports ?? result.error_count ?? 0
+        })
         setStep('complete')
       }
     } catch (error) {
@@ -345,15 +346,23 @@ export function ImportLeadsDialog({ open, onOpenChange }: ImportLeadsDialogProps
   // Handle progress updates
   ReactUseEffect(() => {
     if (importStatus && importId) {
-      if (importStatus.status === 'completed') {
+      const status = importStatus as {
+        status: string
+        successful_imports?: number
+        success_count?: number
+        failed_imports?: number
+        error_count?: number
+        error_message?: string
+      }
+      if (status.status === 'completed') {
         setImportResult({
-          successful: importStatus.success_count || 0,
-          failed: importStatus.error_count || 0
+          successful: status.successful_imports ?? status.success_count ?? 0,
+          failed: status.failed_imports ?? status.error_count ?? 0
         })
         setStep('complete')
         setImportId(null) // Clear import ID
-      } else if (importStatus.status === 'failed') {
-        setErrors([importStatus.error_message || 'Import failed. Please try again.'])
+      } else if (status.status === 'failed') {
+        setErrors([status.error_message || 'Import failed. Please try again.'])
         setStep('preview')
         setImportId(null) // Clear import ID
       }
@@ -394,6 +403,9 @@ export function ImportLeadsDialog({ open, onOpenChange }: ImportLeadsDialogProps
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>Import Leads</DialogTitle>
+          <DialogDescription>
+            Upload a CSV, map columns, and preview data before importing leads.
+          </DialogDescription>
         </DialogHeader>
 
         {/* Step 1: File Upload */}
@@ -442,10 +454,10 @@ export function ImportLeadsDialog({ open, onOpenChange }: ImportLeadsDialogProps
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center space-x-2">
-                  <Checkbox 
+                  <Checkbox
                     id="auto-tagging"
                     checked={autoTaggingEnabled}
-                    onCheckedChange={setAutoTaggingEnabled}
+                    onCheckedChange={(checked) => setAutoTaggingEnabled(checked as boolean)}
                   />
                   <Label htmlFor="auto-tagging" className="font-medium">
                     Enable automatic tag generation
@@ -777,58 +789,71 @@ export function ImportLeadsDialog({ open, onOpenChange }: ImportLeadsDialogProps
               <p className="text-gray-600">This may take a few moments for large files.</p>
             </div>
 
-            {importStatus && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Import Progress</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Progress</span>
-                      <span>{importStatus.progress_percentage || 0}%</span>
+            {importStatus ? (() => {
+              const status = importStatus as {
+                progress_percentage?: number
+                progress_pct?: number
+                processed_rows?: number
+                current_row?: number
+                total_rows?: number
+                estimated_time_remaining?: number
+                eta_seconds?: number
+                successful_imports?: number
+                success_count?: number
+                failed_imports?: number
+                error_count?: number
+                warning_count?: number
+              }
+              const etaSeconds = status.estimated_time_remaining ?? status.eta_seconds
+              return (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Import Progress</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Progress</span>
+                        <span>{status.progress_percentage ?? status.progress_pct ?? 0}%</span>
+                      </div>
+                      <Progress value={status.progress_percentage ?? status.progress_pct ?? 0} className="w-full" />
                     </div>
-                    <Progress value={importStatus.progress_percentage || 0} className="w-full" />
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-600">Current Row:</span>
-                      <div className="font-medium">
-                        {importStatus.current_row || 0} / {importStatus.total_rows || csvData.length}
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">Current Row:</span>
+                        <div className="font-medium">
+                          {(status.processed_rows ?? status.current_row ?? 0)} / {status.total_rows || csvData.length}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Estimated Time:</span>
+                        <div className="font-medium">
+                          {typeof etaSeconds === 'number'
+                            ? `${Math.ceil(etaSeconds)}s`
+                            : 'Calculating...'}
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <span className="text-gray-600">Estimated Time:</span>
-                      <div className="font-medium">
-                        {importStatus.eta_seconds ? `${Math.ceil(importStatus.eta_seconds)}s` : 'Calculating...'}
+
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-green-600">Success:</span>
+                        <div className="font-medium">{status.successful_imports ?? status.success_count ?? 0}</div>
+                      </div>
+                      <div>
+                        <span className="text-red-600">Errors:</span>
+                        <div className="font-medium">{status.failed_imports ?? status.error_count ?? 0}</div>
+                      </div>
+                      <div>
+                        <span className="text-blue-600">Warnings:</span>
+                        <div className="font-medium">{status.warning_count || 0}</div>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <span className="text-green-600">Success:</span>
-                      <div className="font-medium">{importStatus.success_count || 0}</div>
-                    </div>
-                    <div>
-                      <span className="text-red-600">Errors:</span>
-                      <div className="font-medium">{importStatus.error_count || 0}</div>
-                    </div>
-                    <div>
-                      <span className="text-blue-600">Warnings:</span>
-                      <div className="font-medium">{importStatus.warning_count || 0}</div>
-                    </div>
-                  </div>
-
-                  {importStatus.status_message && (
-                    <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                      {importStatus.status_message}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+                  </CardContent>
+                </Card>
+              )
+            })() : null}
 
             {!importStatus && (
               <div className="text-center text-sm text-gray-500">

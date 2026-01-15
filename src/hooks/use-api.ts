@@ -14,8 +14,12 @@ import {
   integrationsApi,
 } from '@/lib/api'
 
+type QueryOptions<TData = any, TError = unknown> = UseQueryOptions<TData, TError, TData, any[]>
+type MutationOptions<TData = any, TError = unknown, TVariables = any, TContext = unknown> =
+  UseMutationOptions<TData, TError, TVariables, TContext>
+
 // Auth Hooks
-export function useCurrentUser(options?: UseQueryOptions) {
+export function useCurrentUser(options?: QueryOptions) {
   return useQuery({
     queryKey: ['auth', 'user'],
     queryFn: authApi.getCurrentUser,
@@ -24,14 +28,14 @@ export function useCurrentUser(options?: UseQueryOptions) {
   })
 }
 
-export function useLogin(options?: UseMutationOptions<any, any, { email: string; password: string }>) {
+export function useLogin(options?: MutationOptions<any, any, { email: string; password: string }>) {
   return useMutation({
     mutationFn: ({ email, password }) => authApi.login(email, password),
     ...options,
   })
 }
 
-export function useLogout(options?: UseMutationOptions) {
+export function useLogout(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: authApi.logout,
@@ -43,7 +47,7 @@ export function useLogout(options?: UseMutationOptions) {
 }
 
 // Leads Hooks
-export function useLeads(params?: any, options?: UseQueryOptions) {
+export function useLeads(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['leads', params],
     queryFn: () => leadsApi.getLeads(params),
@@ -52,7 +56,7 @@ export function useLeads(params?: any, options?: UseQueryOptions) {
   })
 }
 
-export function useLead(id: number, options?: UseQueryOptions) {
+export function useLead(id: string | number, options?: QueryOptions) {
   return useQuery({
     queryKey: ['leads', id],
     queryFn: () => leadsApi.getLead(id),
@@ -61,7 +65,7 @@ export function useLead(id: number, options?: UseQueryOptions) {
   })
 }
 
-export function useCreateLead(options?: UseMutationOptions) {
+export function useCreateLead(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: leadsApi.createLead,
@@ -72,10 +76,10 @@ export function useCreateLead(options?: UseMutationOptions) {
   })
 }
 
-export function useUpdateLead(options?: UseMutationOptions) {
+export function useUpdateLead(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => leadsApi.updateLead(id, data),
+    mutationFn: ({ id, data }: { id: string | number; data: any }) => leadsApi.updateLead(id, data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
       queryClient.invalidateQueries({ queryKey: ['leads', id] })
@@ -84,7 +88,7 @@ export function useUpdateLead(options?: UseMutationOptions) {
   })
 }
 
-export function useDeleteLead(options?: UseMutationOptions) {
+export function useDeleteLead(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: leadsApi.deleteLead,
@@ -95,7 +99,7 @@ export function useDeleteLead(options?: UseMutationOptions) {
   })
 }
 
-export function useImportLeads(options?: UseMutationOptions) {
+export function useImportLeads(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ file, mappings, bulkTags, autoTaggingEnabled, taggingOptions }: {
@@ -113,7 +117,7 @@ export function useImportLeads(options?: UseMutationOptions) {
   })
 }
 
-export function useImportStatus(importId: string, options?: UseQueryOptions) {
+export function useImportStatus(importId: string, options?: QueryOptions) {
   return useQuery({
     queryKey: ['importStatus', importId],
     queryFn: () => leadsApi.getImportStatus(importId),
@@ -129,10 +133,10 @@ export function useImportStatus(importId: string, options?: UseQueryOptions) {
   })
 }
 
-export function useBulkUpdateLeads(options?: UseMutationOptions) {
+export function useBulkUpdateLeads(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ leadIds, updates }: { leadIds: number[]; updates: any }) => 
+    mutationFn: ({ leadIds, updates }: { leadIds: Array<string | number>; updates: any }) => 
       leadsApi.bulkUpdate(leadIds, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
@@ -142,7 +146,7 @@ export function useBulkUpdateLeads(options?: UseMutationOptions) {
 }
 
 // Campaigns Hooks
-export function useCampaigns(params?: any, options?: UseQueryOptions) {
+export function useCampaigns(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['campaigns', params],
     queryFn: () => campaignsApi.getCampaigns(params),
@@ -151,7 +155,7 @@ export function useCampaigns(params?: any, options?: UseQueryOptions) {
   })
 }
 
-export function useActiveCampaigns(options?: UseQueryOptions) {
+export function useActiveCampaigns(options?: QueryOptions) {
   return useQuery({
     queryKey: ['campaigns', { status: 'running' }],
     queryFn: () => campaignsApi.getCampaigns({ status: 'running' }),
@@ -160,7 +164,7 @@ export function useActiveCampaigns(options?: UseQueryOptions) {
   })
 }
 
-export function useCampaign(id: string | number, options?: UseQueryOptions) {
+export function useCampaign(id: string | number, options?: QueryOptions) {
   return useQuery({
     queryKey: ['campaigns', id],
     queryFn: () => campaignsApi.getCampaign(id),
@@ -169,7 +173,7 @@ export function useCampaign(id: string | number, options?: UseQueryOptions) {
   })
 }
 
-export function useCreateCampaign(options?: UseMutationOptions) {
+export function useCreateCampaign(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: campaignsApi.createCampaign,
@@ -180,7 +184,7 @@ export function useCreateCampaign(options?: UseMutationOptions) {
   })
 }
 
-export function useStartCampaign(options?: UseMutationOptions) {
+export function useStartCampaign(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: campaignsApi.startCampaign,
@@ -192,7 +196,7 @@ export function useStartCampaign(options?: UseMutationOptions) {
   })
 }
 
-export function usePauseCampaign(options?: UseMutationOptions) {
+export function usePauseCampaign(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: campaignsApi.pauseCampaign,
@@ -204,7 +208,7 @@ export function usePauseCampaign(options?: UseMutationOptions) {
   })
 }
 
-export function useResumeCampaign(options?: UseMutationOptions) {
+export function useResumeCampaign(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: campaignsApi.resumeCampaign,
@@ -216,7 +220,7 @@ export function useResumeCampaign(options?: UseMutationOptions) {
   })
 }
 
-export function useStopCampaign(options?: UseMutationOptions) {
+export function useStopCampaign(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: campaignsApi.stopCampaign,
@@ -228,14 +232,14 @@ export function useStopCampaign(options?: UseMutationOptions) {
   })
 }
 
-export function useBuildCampaignTargets(options?: UseMutationOptions) {
+export function useBuildCampaignTargets(options?: MutationOptions) {
   return useMutation({
     mutationFn: campaignsApi.buildCampaignTargets,
     ...options,
   })
 }
 
-export function useCampaignStats(id: string | number, options?: UseQueryOptions) {
+export function useCampaignStats(id: string | number, options?: QueryOptions) {
   return useQuery({
     queryKey: ['campaigns', id, 'stats'],
     queryFn: () => campaignsApi.getCampaignStats(id),
@@ -245,7 +249,7 @@ export function useCampaignStats(id: string | number, options?: UseQueryOptions)
   })
 }
 
-export function useCampaignMetrics(id: string | number, options?: UseQueryOptions) {
+export function useCampaignMetrics(id: string | number, options?: QueryOptions) {
   return useQuery({
     queryKey: ['campaigns', id, 'metrics'],
     queryFn: () => campaignsApi.getCampaignMetrics(id),
@@ -256,7 +260,7 @@ export function useCampaignMetrics(id: string | number, options?: UseQueryOption
 }
 
 // Messages Hooks
-export function useConversations(params?: any, options?: UseQueryOptions) {
+export function useConversations(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['conversations', params],
     queryFn: () => messagesApi.getConversations(params),
@@ -265,7 +269,7 @@ export function useConversations(params?: any, options?: UseQueryOptions) {
   })
 }
 
-export function useConversation(id: number, options?: UseQueryOptions) {
+export function useConversation(id: string | number, options?: QueryOptions) {
   return useQuery({
     queryKey: ['conversations', id],
     queryFn: () => messagesApi.getConversation(id),
@@ -275,10 +279,10 @@ export function useConversation(id: number, options?: UseQueryOptions) {
   })
 }
 
-export function useSendMessage(options?: UseMutationOptions) {
+export function useSendMessage(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ conversationId, content }: { conversationId: number; content: string }) =>
+    mutationFn: ({ conversationId, content }: { conversationId: string | number; content: string }) =>
       messagesApi.sendMessage(conversationId, content),
     onSuccess: (_, { conversationId }) => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
@@ -288,7 +292,7 @@ export function useSendMessage(options?: UseMutationOptions) {
   })
 }
 
-export function useBroadcastMessage(options?: UseMutationOptions) {
+export function useBroadcastMessage(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: { content: string; leadIds?: number[]; filters?: any }) =>
@@ -301,7 +305,7 @@ export function useBroadcastMessage(options?: UseMutationOptions) {
   })
 }
 
-export function useArchiveConversation(options?: UseMutationOptions) {
+export function useArchiveConversation(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: messagesApi.archiveConversation,
@@ -312,7 +316,7 @@ export function useArchiveConversation(options?: UseMutationOptions) {
   })
 }
 
-export function useDeleteConversation(options?: UseMutationOptions) {
+export function useDeleteConversation(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: messagesApi.deleteConversation,
@@ -323,10 +327,10 @@ export function useDeleteConversation(options?: UseMutationOptions) {
   })
 }
 
-export function useMarkConversationRead(options?: UseMutationOptions) {
+export function useMarkConversationRead(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (conversationId: number) => messagesApi.markConversationRead(conversationId),
+    mutationFn: (conversationId: string | number) => messagesApi.markConversationRead(conversationId),
     onSuccess: (_, conversationId) => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
       queryClient.invalidateQueries({ queryKey: ['conversations', conversationId] })
@@ -335,10 +339,10 @@ export function useMarkConversationRead(options?: UseMutationOptions) {
   })
 }
 
-export function useStarConversation(options?: UseMutationOptions) {
+export function useStarConversation(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (conversationId: number) => messagesApi.starConversation(conversationId),
+    mutationFn: (conversationId: string | number) => messagesApi.starConversation(conversationId),
     onSuccess: (_, conversationId) => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
       queryClient.invalidateQueries({ queryKey: ['conversations', conversationId] })
@@ -347,10 +351,10 @@ export function useStarConversation(options?: UseMutationOptions) {
   })
 }
 
-export function useUnstarConversation(options?: UseMutationOptions) {
+export function useUnstarConversation(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (conversationId: number) => messagesApi.unstarConversation(conversationId),
+    mutationFn: (conversationId: string | number) => messagesApi.unstarConversation(conversationId),
     onSuccess: (_, conversationId) => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
       queryClient.invalidateQueries({ queryKey: ['conversations', conversationId] })
@@ -359,7 +363,7 @@ export function useUnstarConversation(options?: UseMutationOptions) {
   })
 }
 
-export function useMessageTemplates(options?: UseQueryOptions) {
+export function useMessageTemplates(options?: QueryOptions) {
   return useQuery({
     queryKey: ['message-templates'],
     queryFn: messagesApi.getTemplates,
@@ -368,7 +372,7 @@ export function useMessageTemplates(options?: UseQueryOptions) {
   })
 }
 
-export function useQuickResponses(options?: UseQueryOptions) {
+export function useQuickResponses(options?: QueryOptions) {
   return useQuery({
     queryKey: ['quick-responses'],
     queryFn: messagesApi.getQuickResponses,
@@ -378,7 +382,7 @@ export function useQuickResponses(options?: UseQueryOptions) {
 }
 
 // Templates Hooks
-export function useTemplates(params?: any, options?: UseQueryOptions) {
+export function useTemplates(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['templates', params],
     queryFn: () => templatesApi.getTemplates(params),
@@ -387,7 +391,7 @@ export function useTemplates(params?: any, options?: UseQueryOptions) {
   })
 }
 
-export function useTemplate(id: number, options?: UseQueryOptions) {
+export function useTemplate(id: string | number, options?: QueryOptions) {
   return useQuery({
     queryKey: ['templates', id],
     queryFn: () => templatesApi.getTemplate(id),
@@ -396,7 +400,7 @@ export function useTemplate(id: number, options?: UseQueryOptions) {
   })
 }
 
-export function useCreateTemplate(options?: UseMutationOptions) {
+export function useCreateTemplate(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: templatesApi.createTemplate,
@@ -407,10 +411,10 @@ export function useCreateTemplate(options?: UseMutationOptions) {
   })
 }
 
-export function useUpdateTemplate(options?: UseMutationOptions) {
+export function useUpdateTemplate(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => templatesApi.updateTemplate(id, data),
+    mutationFn: ({ id, data }: { id: string | number; data: any }) => templatesApi.updateTemplate(id, data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['templates'] })
       queryClient.invalidateQueries({ queryKey: ['templates', id] })
@@ -419,10 +423,10 @@ export function useUpdateTemplate(options?: UseMutationOptions) {
   })
 }
 
-export function useDeleteTemplate(options?: UseMutationOptions) {
+export function useDeleteTemplate(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: templatesApi.deleteTemplate,
+    mutationFn: (id: string | number) => templatesApi.deleteTemplate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['templates'] })
     },
@@ -430,7 +434,7 @@ export function useDeleteTemplate(options?: UseMutationOptions) {
   })
 }
 
-export function useTemplateStats(params?: { timeRange?: string }, options?: UseQueryOptions) {
+export function useTemplateStats(params?: { timeRange?: string }, options?: QueryOptions) {
   return useQuery({
     queryKey: ['templates', 'stats', params],
     queryFn: () => templatesApi.getTemplateStats(params),
@@ -439,7 +443,7 @@ export function useTemplateStats(params?: { timeRange?: string }, options?: UseQ
   })
 }
 
-export function useTestTemplate(options?: UseMutationOptions) {
+export function useTestTemplate(options?: MutationOptions) {
   return useMutation({
     mutationFn: ({ id, testData }: { id: number; testData: any }) =>
       templatesApi.testTemplate(id, testData),
@@ -447,7 +451,7 @@ export function useTestTemplate(options?: UseMutationOptions) {
   })
 }
 
-export function useTemplatePerformance(id: number, timeRange?: string, options?: UseQueryOptions) {
+export function useTemplatePerformance(id: string | number, timeRange?: string, options?: QueryOptions) {
   return useQuery({
     queryKey: ['templates', id, 'performance', timeRange],
     queryFn: () => templatesApi.getTemplatePerformance(id, timeRange),
@@ -458,7 +462,7 @@ export function useTemplatePerformance(id: number, timeRange?: string, options?:
 }
 
 // Phone Numbers Hooks
-export function usePhoneNumbers(params?: any, options?: UseQueryOptions) {
+export function usePhoneNumbers(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['phone-numbers', params],
     queryFn: () => phoneNumbersApi.getPhoneNumbers(params),
@@ -467,7 +471,7 @@ export function usePhoneNumbers(params?: any, options?: UseQueryOptions) {
   })
 }
 
-export function usePhoneNumber(id: number, options?: UseQueryOptions) {
+export function usePhoneNumber(id: number, options?: QueryOptions) {
   return useQuery({
     queryKey: ['phone-numbers', id],
     queryFn: () => phoneNumbersApi.getPhoneNumber(id),
@@ -476,7 +480,7 @@ export function usePhoneNumber(id: number, options?: UseQueryOptions) {
   })
 }
 
-export function usePhoneNumberHealth(id: number, options?: UseQueryOptions) {
+export function usePhoneNumberHealth(id: number, options?: QueryOptions) {
   return useQuery({
     queryKey: ['phone-numbers', id, 'health'],
     queryFn: () => phoneNumbersApi.getPhoneNumberHealth(id),
@@ -486,7 +490,7 @@ export function usePhoneNumberHealth(id: number, options?: UseQueryOptions) {
   })
 }
 
-export function usePurchasePhoneNumber(options?: UseMutationOptions) {
+export function usePurchasePhoneNumber(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: phoneNumbersApi.purchasePhoneNumber,
@@ -497,7 +501,7 @@ export function usePurchasePhoneNumber(options?: UseMutationOptions) {
   })
 }
 
-export function useTestPhoneNumber(options?: UseMutationOptions) {
+export function useTestPhoneNumber(options?: MutationOptions) {
   return useMutation({
     mutationFn: ({ id, testData }: { id: number; testData: any }) =>
       phoneNumbersApi.testPhoneNumber(id, testData),
@@ -505,7 +509,7 @@ export function useTestPhoneNumber(options?: UseMutationOptions) {
   })
 }
 
-export function useSyncTwilioNumbers(options?: UseMutationOptions) {
+export function useSyncTwilioNumbers(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: phoneNumbersApi.syncTwilioNumbers,
@@ -516,7 +520,7 @@ export function useSyncTwilioNumbers(options?: UseMutationOptions) {
   })
 }
 
-export function useUpdatePhoneNumberSettings(options?: UseMutationOptions) {
+export function useUpdatePhoneNumberSettings(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, settings }: { id: number; settings: any }) =>
@@ -529,7 +533,7 @@ export function useUpdatePhoneNumberSettings(options?: UseMutationOptions) {
   })
 }
 
-export function usePhoneNumberAnalytics(id: number, timeRange?: string, options?: UseQueryOptions) {
+export function usePhoneNumberAnalytics(id: number, timeRange?: string, options?: QueryOptions) {
   return useQuery({
     queryKey: ['phone-numbers', id, 'analytics', timeRange],
     queryFn: () => phoneNumbersApi.getPhoneNumberAnalytics(id, timeRange),
@@ -540,7 +544,7 @@ export function usePhoneNumberAnalytics(id: number, timeRange?: string, options?
 }
 
 // Compliance Hooks
-export function useOptOuts(params?: any, options?: UseQueryOptions) {
+export function useOptOuts(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['opt-outs', params],
     queryFn: () => complianceApi.getOptOuts(params),
@@ -549,7 +553,7 @@ export function useOptOuts(params?: any, options?: UseQueryOptions) {
   })
 }
 
-export function useAuditLogs(params?: any, options?: UseQueryOptions) {
+export function useAuditLogs(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['audit-logs', params],
     queryFn: () => complianceApi.getAuditLogs(params),
@@ -558,7 +562,7 @@ export function useAuditLogs(params?: any, options?: UseQueryOptions) {
   })
 }
 
-export function useConsentRecords(params?: any, options?: UseQueryOptions) {
+export function useConsentRecords(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['consent-records', params],
     queryFn: () => complianceApi.getConsentRecords(params),
@@ -567,7 +571,7 @@ export function useConsentRecords(params?: any, options?: UseQueryOptions) {
   })
 }
 
-export function useAddOptOut(options?: UseMutationOptions) {
+export function useAddOptOut(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ phoneNumber, reason }: { phoneNumber: string; reason?: string }) =>
@@ -579,7 +583,7 @@ export function useAddOptOut(options?: UseMutationOptions) {
   })
 }
 
-export function useBulkOptOut(options?: UseMutationOptions) {
+export function useBulkOptOut(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ phoneNumbers, reason, source }: { phoneNumbers: string[]; reason?: string; source?: string }) =>
@@ -591,7 +595,7 @@ export function useBulkOptOut(options?: UseMutationOptions) {
   })
 }
 
-export function useComplianceDashboard(options?: UseQueryOptions) {
+export function useComplianceDashboard(options?: QueryOptions) {
   return useQuery({
     queryKey: ['compliance', 'dashboard'],
     queryFn: complianceApi.getComplianceDashboard,
@@ -601,7 +605,7 @@ export function useComplianceDashboard(options?: UseQueryOptions) {
   })
 }
 
-export function useGenerateComplianceReport(options?: UseMutationOptions) {
+export function useGenerateComplianceReport(options?: MutationOptions) {
   return useMutation({
     mutationFn: (params: {
       type: string
@@ -614,7 +618,7 @@ export function useGenerateComplianceReport(options?: UseMutationOptions) {
 }
 
 // Analytics Hooks
-export function useDashboardMetrics(options?: UseQueryOptions) {
+export function useDashboardMetrics(options?: QueryOptions) {
   return useQuery({
     queryKey: ['analytics', 'dashboard'],
     queryFn: analyticsApi.getDashboardMetrics,
@@ -624,7 +628,7 @@ export function useDashboardMetrics(options?: UseQueryOptions) {
   })
 }
 
-export function useCampaignAnalytics(campaignId: string | number, timeRange: string, options?: UseQueryOptions) {
+export function useCampaignAnalytics(campaignId: string | number, timeRange: string, options?: QueryOptions) {
   return useQuery({
     queryKey: ['analytics', 'campaigns', campaignId, timeRange],
     queryFn: () => analyticsApi.getCampaignAnalytics(campaignId, timeRange),
@@ -634,7 +638,7 @@ export function useCampaignAnalytics(campaignId: string | number, timeRange: str
   })
 }
 
-export function useLeadAnalytics(timeRange: string, options?: UseQueryOptions) {
+export function useLeadAnalytics(timeRange: string, options?: QueryOptions) {
   return useQuery({
     queryKey: ['analytics', 'leads', timeRange],
     queryFn: () => analyticsApi.getLeadAnalytics(timeRange),
@@ -643,7 +647,7 @@ export function useLeadAnalytics(timeRange: string, options?: UseQueryOptions) {
   })
 }
 
-export function useMessageAnalytics(timeRange: string, options?: UseQueryOptions) {
+export function useMessageAnalytics(timeRange: string, options?: QueryOptions) {
   return useQuery({
     queryKey: ['analytics', 'messages', timeRange],
     queryFn: () => analyticsApi.getMessageAnalytics(timeRange),
@@ -652,7 +656,7 @@ export function useMessageAnalytics(timeRange: string, options?: UseQueryOptions
   })
 }
 
-export function usePhoneHealthAnalytics(options?: UseQueryOptions) {
+export function usePhoneHealthAnalytics(options?: QueryOptions) {
   return useQuery({
     queryKey: ['analytics', 'phone-health'],
     queryFn: analyticsApi.getPhoneHealthAnalytics,
@@ -661,7 +665,7 @@ export function usePhoneHealthAnalytics(options?: UseQueryOptions) {
   })
 }
 
-export function useTrendAnalytics(params?: { metric?: string; timeRange?: string }, options?: UseQueryOptions) {
+export function useTrendAnalytics(params?: { metric?: string; timeRange?: string }, options?: QueryOptions) {
   return useQuery({
     queryKey: ['analytics', 'trends', params],
     queryFn: () => analyticsApi.getTrends(params),
@@ -670,7 +674,7 @@ export function useTrendAnalytics(params?: { metric?: string; timeRange?: string
   })
 }
 
-export function useROIAnalytics(timeRange: string, options?: UseQueryOptions) {
+export function useROIAnalytics(timeRange: string, options?: QueryOptions) {
   return useQuery({
     queryKey: ['analytics', 'roi', timeRange],
     queryFn: () => analyticsApi.getROIAnalysis(timeRange),
@@ -679,7 +683,7 @@ export function useROIAnalytics(timeRange: string, options?: UseQueryOptions) {
   })
 }
 
-export function useConversionFunnel(campaignId?: number, timeRange?: string, options?: UseQueryOptions) {
+export function useConversionFunnel(campaignId?: number, timeRange?: string, options?: QueryOptions) {
   return useQuery({
     queryKey: ['analytics', 'conversion-funnel', campaignId, timeRange],
     queryFn: () => analyticsApi.getConversionFunnel(campaignId, timeRange),
@@ -688,7 +692,7 @@ export function useConversionFunnel(campaignId?: number, timeRange?: string, opt
   })
 }
 
-export function useCompareCampaigns(campaignIds: number[], metrics?: string[], options?: UseQueryOptions) {
+export function useCompareCampaigns(campaignIds: Array<string | number>, metrics?: string[], options?: QueryOptions) {
   return useQuery({
     queryKey: ['analytics', 'campaigns-comparison', campaignIds, metrics],
     queryFn: () => analyticsApi.compareCampaigns(campaignIds, metrics),
@@ -699,7 +703,7 @@ export function useCompareCampaigns(campaignIds: number[], metrics?: string[], o
 }
 
 // Recent Leads Hook (for Dashboard)
-export function useRecentLeads(options?: UseQueryOptions) {
+export function useRecentLeads(options?: QueryOptions) {
   return useQuery({
     queryKey: ['leads', { recent: true }],
     queryFn: () => leadsApi.getLeads({ limit: 10 }),
@@ -709,7 +713,7 @@ export function useRecentLeads(options?: UseQueryOptions) {
 }
 
 // Organization Hooks
-export function useCurrentOrganization(options?: UseQueryOptions) {
+export function useCurrentOrganization(options?: QueryOptions) {
   return useQuery({
     queryKey: ['organization', 'current'],
     queryFn: organizationsApi.getCurrentOrganization,
@@ -718,7 +722,7 @@ export function useCurrentOrganization(options?: UseQueryOptions) {
   })
 }
 
-export function useOrganizationUsers(params?: any, options?: UseQueryOptions) {
+export function useOrganizationUsers(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['organization', 'users', params],
     queryFn: () => organizationsApi.getOrganizationUsers(params),
@@ -728,7 +732,7 @@ export function useOrganizationUsers(params?: any, options?: UseQueryOptions) {
 }
 
 // Settings Hooks
-export function useSettings(options?: UseQueryOptions) {
+export function useSettings(options?: QueryOptions) {
   return useQuery({
     queryKey: ['settings'],
     queryFn: settingsApi.getSettings,
@@ -737,7 +741,7 @@ export function useSettings(options?: UseQueryOptions) {
   })
 }
 
-export function useIntegrationSettings(options?: UseQueryOptions) {
+export function useIntegrationSettings(options?: QueryOptions) {
   return useQuery({
     queryKey: ['settings', 'integrations'],
     queryFn: settingsApi.getIntegrationSettings,
@@ -746,7 +750,7 @@ export function useIntegrationSettings(options?: UseQueryOptions) {
   })
 }
 
-export function useUpdateSettings(options?: UseMutationOptions) {
+export function useUpdateSettings(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: settingsApi.updateSettings,
@@ -758,7 +762,7 @@ export function useUpdateSettings(options?: UseMutationOptions) {
 }
 
 // Webhooks Hooks
-export function useWebhooks(params?: any, options?: UseQueryOptions) {
+export function useWebhooks(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['webhooks', params],
     queryFn: () => webhooksApi.getWebhooks(params),
@@ -767,7 +771,7 @@ export function useWebhooks(params?: any, options?: UseQueryOptions) {
   })
 }
 
-export function useCreateWebhook(options?: UseMutationOptions) {
+export function useCreateWebhook(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: webhooksApi.createWebhook,
@@ -778,14 +782,14 @@ export function useCreateWebhook(options?: UseMutationOptions) {
   })
 }
 
-export function useTestWebhook(options?: UseMutationOptions) {
+export function useTestWebhook(options?: MutationOptions) {
   return useMutation({
     mutationFn: webhooksApi.testWebhook,
     ...options,
   })
 }
 
-export function useTestWebhookByUrl(options?: UseMutationOptions) {
+export function useTestWebhookByUrl(options?: MutationOptions) {
   return useMutation({
     mutationFn: webhooksApi.testByUrl,
     ...options,
@@ -793,7 +797,7 @@ export function useTestWebhookByUrl(options?: UseMutationOptions) {
 }
 
 // Integration Hooks
-export function useIntegrations(params?: any, options?: UseQueryOptions) {
+export function useIntegrations(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['integrations', params],
     queryFn: () => integrationsApi.list(),
@@ -802,7 +806,7 @@ export function useIntegrations(params?: any, options?: UseQueryOptions) {
   })
 }
 
-export function useTwilioStatus(options?: UseQueryOptions) {
+export function useTwilioStatus(options?: QueryOptions) {
   return useQuery({
     queryKey: ['integrations', 'twilio', 'status'],
     queryFn: integrationsApi.getTwilioStatus,
@@ -812,14 +816,14 @@ export function useTwilioStatus(options?: UseQueryOptions) {
   })
 }
 
-export function useTestTwilioConnection(options?: UseMutationOptions) {
+export function useTestTwilioConnection(options?: MutationOptions) {
   return useMutation({
     mutationFn: integrationsApi.testTwilioConnection,
     ...options,
   })
 }
 
-export function useUpdateTwilioConfig(options?: UseMutationOptions) {
+export function useUpdateTwilioConfig(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: integrationsApi.updateTwilioConfig,
@@ -830,7 +834,7 @@ export function useUpdateTwilioConfig(options?: UseMutationOptions) {
   })
 }
 
-export function useAPIKeys(params?: any, options?: UseQueryOptions) {
+export function useAPIKeys(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['integrations', 'api-keys', params],
     queryFn: () => integrationsApi.getAPIKeys(params),
@@ -839,7 +843,7 @@ export function useAPIKeys(params?: any, options?: UseQueryOptions) {
   })
 }
 
-export function useCreateAPIKey(options?: UseMutationOptions) {
+export function useCreateAPIKey(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: integrationsApi.createAPIKey,
@@ -850,7 +854,7 @@ export function useCreateAPIKey(options?: UseMutationOptions) {
   })
 }
 
-export function useDeleteAPIKey(options?: UseMutationOptions) {
+export function useDeleteAPIKey(options?: MutationOptions) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => integrationsApi.deleteAPIKey(id),
@@ -863,7 +867,7 @@ export function useDeleteAPIKey(options?: UseMutationOptions) {
 
 // Note: useComplianceDashboard is already defined above with real implementation
 
-export function useAuditTrail(params?: any, options?: UseQueryOptions) {
+export function useAuditTrail(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['audit-trail', params],
     queryFn: () => complianceApi.getAuditLogs(params), // Use API directly instead of hook
@@ -872,7 +876,7 @@ export function useAuditTrail(params?: any, options?: UseQueryOptions) {
   })
 }
 
-export function useComplianceReports(params?: any, options?: UseQueryOptions) {
+export function useComplianceReports(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['compliance-reports', params],
     queryFn: () => complianceApi.reports.list(params), // Use list method for report metadata
@@ -881,7 +885,7 @@ export function useComplianceReports(params?: any, options?: UseQueryOptions) {
   })
 }
 
-export function useDownloadComplianceReport(options?: UseMutationOptions) {
+export function useDownloadComplianceReport(options?: MutationOptions) {
   return useMutation({
     mutationFn: (reportId: string) => complianceApi.reports.download(reportId),
     ...options,
@@ -889,7 +893,7 @@ export function useDownloadComplianceReport(options?: UseMutationOptions) {
 }
 
 // Additional Phone Number Hooks
-export function usePhoneNumberStats(params?: any, options?: UseQueryOptions) {
+export function usePhoneNumberStats(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['phone-numbers', 'stats', params],
     queryFn: () => analyticsApi.getPhoneHealthAnalytics(), // Use real API
@@ -899,7 +903,7 @@ export function usePhoneNumberStats(params?: any, options?: UseQueryOptions) {
 }
 
 // Additional Analytics Hooks
-export function useAnalytics(params?: any, options?: UseQueryOptions) {
+export function useAnalytics(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['analytics', 'general', params],
     queryFn: () => analyticsApi.getDashboardMetrics(), // Use real API
@@ -908,7 +912,7 @@ export function useAnalytics(params?: any, options?: UseQueryOptions) {
   })
 }
 
-export function usePerformanceMetrics(params?: any, options?: UseQueryOptions) {
+export function usePerformanceMetrics(params?: any, options?: QueryOptions) {
   return useQuery({
     queryKey: ['analytics', 'performance', params],
     queryFn: () => analyticsApi.getMessageAnalytics(params?.timeRange || '7d'), // Use real API

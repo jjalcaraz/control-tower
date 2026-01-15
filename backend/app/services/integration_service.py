@@ -2,7 +2,7 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.schemas.integration import WebhookCreate, WebhookUpdate, APIKeyCreate
 
@@ -20,17 +20,17 @@ class IntegrationService:
             "twilio": {
                 "status": "connected",
                 "health": "healthy",
-                "last_checked": datetime.utcnow().isoformat()
+                "last_checked": datetime.now(timezone.utc).isoformat()
             },
             "supabase": {
                 "status": "connected",
                 "health": "healthy",
-                "last_checked": datetime.utcnow().isoformat()
+                "last_checked": datetime.now(timezone.utc).isoformat()
             },
             "redis": {
                 "status": "connected",
                 "health": "healthy",
-                "last_checked": datetime.utcnow().isoformat()
+                "last_checked": datetime.now(timezone.utc).isoformat()
             }
         }
     
@@ -80,7 +80,7 @@ class IntegrationService:
             "url": webhook_data.url,
             "events": webhook_data.events,
             "status": "active",
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
     
     async def update_webhook(
@@ -95,7 +95,7 @@ class IntegrationService:
         return {
             "id": str(webhook_id),
             "status": "updated",
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
     
     async def delete_webhook(
@@ -159,7 +159,7 @@ class IntegrationService:
             "key": "sk_test_" + str(uuid.uuid4()).replace('-', '')[:32],
             "permissions": api_key_data.permissions,
             "status": "active",
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
     
     async def revoke_api_key(

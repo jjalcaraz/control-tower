@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type {
   WebSocketMessage,
-  WebSocketEvent,
   WebSocketStatus,
   DashboardMetricsUpdate,
   CampaignMetricsUpdate,
@@ -223,6 +222,7 @@ export function useLeadWebSocket() {
 
   return useWebSocket(WS_URL, {
     onMessage: (data) => {
+      void data
       // Invalidate leads cache on lead updates
       switch (data.type) {
         case 'lead_created':
@@ -288,7 +288,7 @@ export function useMessagesWebSocket() {
       return (
         messageData &&
         typeof messageData === 'object' &&
-        typeof messageData.conversation_id === 'number' &&
+        (typeof messageData.conversation_id === 'number' || typeof messageData.conversation_id === 'string') &&
         typeof messageData.content === 'string' &&
         typeof messageData.direction === 'string'
       )
@@ -297,7 +297,7 @@ export function useMessagesWebSocket() {
 }
 
 // Conversation-specific WebSocket hook
-export function useConversationWebSocket(conversationId: number) {
+export function useConversationWebSocket(conversationId: string | number) {
   const queryClient = useQueryClient()
   const WS_URL = `${WS_BASE}/conversations/${conversationId}`
 
@@ -361,6 +361,7 @@ export function useAnalyticsWebSocket() {
 
   return useWebSocket(WS_URL, {
     onMessage: (data) => {
+      void data
       // Update relevant analytics cache
       queryClient.invalidateQueries({
         predicate: (query) => query.queryKey[0] === 'analytics'
@@ -378,6 +379,7 @@ export function useComplianceWebSocket() {
 
   return useWebSocket<OptOutEvent>(WS_URL, {
     onMessage: (data) => {
+      void data
       // Update compliance cache
       queryClient.invalidateQueries({
         predicate: (query) => query.queryKey[0] === 'compliance'

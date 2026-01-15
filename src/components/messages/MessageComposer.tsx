@@ -8,8 +8,6 @@ import { Input } from '@/components/ui/input'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { 
   Send, 
-  Paperclip, 
-  Smile, 
   Zap,
   Type,
   Calendar,
@@ -21,6 +19,7 @@ import {
   Search
 } from 'lucide-react'
 import { useSendMessage, useTemplates, useLeads } from '@/hooks/use-api'
+import type { Lead } from '@/types/lead'
 
 interface MessageComposerProps {
   conversationId?: string
@@ -84,8 +83,8 @@ export function MessageComposer({
   const { data: templatesData } = useTemplates()
   const { data: leadsData } = useLeads({ limit: 100 }, { enabled: showRecipientSelector })
 
-  const templates = templatesData?.data || []
-  const leads = leadsData?.data || []
+  const templates = (templatesData?.data || []) as Template[]
+  const leads = (leadsData?.data || []) as Lead[]
 
   // Filter leads based on search
   const filteredLeads = leads.filter(lead => {
@@ -126,7 +125,7 @@ export function MessageComposer({
       if (conversationId) {
         // Send to specific conversation
         await sendMessageMutation.mutateAsync({
-          conversationId: parseInt(conversationId),
+          conversationId: conversationId,
           content: message.trim()
         })
       } else if (onSendMessage) {

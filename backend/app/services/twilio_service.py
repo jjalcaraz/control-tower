@@ -1,6 +1,6 @@
 import asyncio
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import phonenumbers
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioException
@@ -326,7 +326,7 @@ class TwilioService:
             Dictionary with usage statistics
         """
         try:
-            end_date = datetime.utcnow().date()
+            end_date = datetime.now(timezone.utc).date()
             start_date = end_date - timedelta(days=days)
             
             loop = asyncio.get_event_loop()

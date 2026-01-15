@@ -8,20 +8,18 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { 
-  Plus, 
-  Search, 
-  Edit3, 
-  Copy, 
-  Trash2, 
+import {
+  Plus,
+  Search,
+  Edit3,
+  Copy,
+  Trash2,
   MessageSquare,
   Variable,
   Eye,
-  Save,
-  X
+  Save
 } from 'lucide-react'
 import { MessageTemplate } from '@/types/campaign'
-import { cn } from '@/lib/utils'
 
 interface TemplateManagerProps {
   open: boolean
@@ -107,7 +105,7 @@ export function TemplateManager({
     content: '',
     variables: []
   })
-  const [previewData, setPreviewData] = useState<TemplatePreview>({
+  const [previewData, _setPreviewData] = useState<TemplatePreview>({
     firstName: 'John',
     lastName: 'Smith',
     city: 'Austin',

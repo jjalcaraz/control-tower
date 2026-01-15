@@ -5,18 +5,14 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
-  Plus,
   Play,
   Pause,
-  Edit2,
   Trash2,
   Clock,
   MessageSquare,
   Filter,
   Target,
-  Calendar,
   ArrowDown,
-  Settings,
   Save,
   Users
 } from 'lucide-react'
@@ -92,7 +88,7 @@ const STEP_TEMPLATES = [
 ]
 
 export function DripCampaignBuilder() {
-  const [selectedCampaign, setSelectedCampaign] = useState<string>('new')
+  const [_selectedCampaign, _setSelectedCampaign] = useState<string>('new')
   const [campaign, setCampaign] = useState<DripCampaign>({
     id: 'new',
     name: 'New Drip Campaign',
@@ -143,17 +139,6 @@ export function DripCampaignBuilder() {
       steps: prev.steps.filter(step => step.id !== stepId)
     }))
     setSelectedStep(null)
-  }
-
-  const connectSteps = (fromId: string, toId: string) => {
-    setCampaign(prev => ({
-      ...prev,
-      steps: prev.steps.map(step => 
-        step.id === fromId 
-          ? { ...step, connections: [...step.connections, toId] }
-          : step
-      )
-    }))
   }
 
   const saveCampaign = async () => {

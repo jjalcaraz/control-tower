@@ -1,7 +1,7 @@
 from celery import current_app as celery_app
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from datetime import datetime
+from datetime import datetime, timezone
 import asyncio
 import json
 from typing import Dict, Any, Optional
@@ -274,7 +274,7 @@ async def _cleanup_old_webhook_logs_async(days_to_keep: int) -> Dict[str, Any]:
             from sqlalchemy import delete
             from datetime import timedelta
             
-            cutoff_date = datetime.utcnow() - timedelta(days=days_to_keep)
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_to_keep)
             
             # Delete old webhook logs
             delete_stmt = delete(WebhookLog).where(WebhookLog.created_at < cutoff_date)
@@ -314,7 +314,7 @@ async def _retry_failed_webhooks_async(max_age_hours: int) -> Dict[str, Any]:
         try:
             from datetime import timedelta
             
-            cutoff_time = datetime.utcnow() - timedelta(hours=max_age_hours)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
             
             # Find failed webhook logs
             result = await db.execute(

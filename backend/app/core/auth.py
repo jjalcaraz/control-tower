@@ -5,13 +5,18 @@ from sqlalchemy import select
 from typing import Optional, List, Dict, Any, Union
 import jwt
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.user import User
 from app.models.organization import Organization
+
+DEFAULT_ORG_ID = uuid.UUID("12345678-1234-5678-9abc-123456789012")
+DEFAULT_ORG_NAME = "Default Organization"
+DEFAULT_ORG_SLUG = "default-org"
+DEFAULT_BRAND_NAME = "Default Brand"
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -32,11 +37,11 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
     """Create a JWT access token"""
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(hours=24)  # Default 24 hours
+        expire = datetime.now(timezone.utc) + timedelta(hours=24)  # Default 24 hours
     
-    to_encode.update({"exp": expire, "iat": datetime.utcnow()})
+    to_encode.update({"exp": expire, "iat": datetime.now(timezone.utc)})
     encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
     return encoded_jwt
 
@@ -51,6 +56,26 @@ class CurrentUser:
         self.email = user.email
         self.role = user.role
         self.is_active = user.is_active
+
+
+async def _get_or_create_default_org(db: AsyncSession) -> Organization:
+    result = await db.execute(
+        select(Organization).where(Organization.id == DEFAULT_ORG_ID)
+    )
+    organization = result.scalar_one_or_none()
+    if organization:
+        return organization
+
+    organization = Organization(
+        id=DEFAULT_ORG_ID,
+        name=DEFAULT_ORG_NAME,
+        slug=DEFAULT_ORG_SLUG,
+        brand_name=DEFAULT_BRAND_NAME
+    )
+    db.add(organization)
+    await db.commit()
+    await db.refresh(organization)
+    return organization
 
 
 async def get_current_user(
@@ -107,31 +132,26 @@ async def get_current_user(
 
     if user is None:
         # Create a lightweight user record for development
+        organization = await _get_or_create_default_org(db)
         user = User(
             id=user_id,
             email=email or f"user{user_id}@example.com",
             username=email.split("@")[0] if email else f"user{user_id}",
-            password="dev-password",
+            hashed_password=get_password_hash("dev-password"),
             role="admin",
-            is_active=True
+            is_active=True,
+            organization_id=organization.id
         )
         db.add(user)
         await db.commit()
         await db.refresh(user)
-
-    # Create a mock organization for development
-    class MockOrg:
-        id = "default-org"
-        name = "Default Organization"
-        domain = "localhost"
-
-    mock_organization = MockOrg()
+    organization = await _get_or_create_default_org(db)
 
     # Update last login
-    user.last_login = datetime.utcnow()
+    user.last_login_at = datetime.now(timezone.utc)
     await db.commit()
 
-    return CurrentUser(user, mock_organization)
+    return CurrentUser(user, organization)
 
 
 async def get_current_active_user(
@@ -220,8 +240,9 @@ async def get_current_user_websocket(websocket) -> Optional[CurrentUser]:
         id=0,
         email="websocket@example.com",
         username="websocket",
-        password="dev-password",
+        hashed_password="dev-password",
         role="admin",
-        is_active=True
+        is_active=True,
+        organization_id=uuid.uuid4()
     )
     return CurrentUser(user, MockOrg())

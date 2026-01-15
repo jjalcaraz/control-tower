@@ -3,8 +3,15 @@ import { Users, Send, MessageSquare, TrendingUp, Phone, AlertTriangle } from 'lu
 import { MetricsGrid, defaultMetrics } from '@/components/dashboard/MetricsGrid'
 import { ActivityFeed, defaultActivities } from '@/components/dashboard/ActivityFeed'
 import { QuickActions } from '@/components/dashboard/QuickActions'
-import { useDashboardMetrics, useActiveCampaigns, useRecentLeads } from '@/hooks/use-api'
+import { useDashboardMetrics, useActiveCampaigns } from '@/hooks/use-api'
 import { useDashboardWebSocket } from '@/hooks/use-websocket'
+
+const toChangeType = (value?: string) => {
+  if (!value) return 'neutral' as const
+  return value.startsWith('+') ? 'increase' as const : value.startsWith('-') ? 'decrease' as const : 'neutral' as const
+}
+
+const toStatus = (value: 'success' | 'warning' | 'error' | 'neutral') => value
 
 // Transform API data to metrics format
 const transformMetricsData = (data: any) => {
@@ -29,10 +36,10 @@ const transformMetricsData = (data: any) => {
       title: 'Total Leads',
       value: totalLeads || 12847,
       change: leadsChange || '+12%',
-      changeType: leadsChange?.startsWith('+') ? 'increase' : 'decrease',
+      changeType: toChangeType(leadsChange),
       subtitle: 'All time',
       icon: Users,
-      status: 'success' as const
+      status: toStatus('success')
     },
     {
       title: 'Active Campaigns',
@@ -41,25 +48,25 @@ const transformMetricsData = (data: any) => {
       changeType: 'increase' as const,
       subtitle: 'Currently running',
       icon: Send,
-      status: 'success' as const
+      status: toStatus('success')
     },
     {
       title: 'Messages Today',
       value: messagesToday || 2156,
       change: messagesChange || '+23%',
-      changeType: messagesChange?.startsWith('+') ? 'increase' : 'decrease',
+      changeType: toChangeType(messagesChange),
       subtitle: 'Sent today',
       icon: MessageSquare,
-      status: messagesChange?.startsWith('-') ? 'warning' : 'success' as const
+      status: toStatus(messagesChange?.startsWith('-') ? 'warning' : 'success')
     },
     {
       title: 'Delivery Rate',
       value: `${deliveryRate || 94.2}%`,
       change: deliveryChange || '-2%',
-      changeType: deliveryChange?.startsWith('+') ? 'increase' : 'decrease',
+      changeType: toChangeType(deliveryChange),
       subtitle: 'Last 24 hours',
       icon: TrendingUp,
-      status: (deliveryRate || 94.2) < 90 ? 'warning' : 'success' as const
+      status: toStatus((deliveryRate || 94.2) < 90 ? 'warning' : 'success')
     },
     {
       title: 'Reply Rate',
@@ -68,7 +75,7 @@ const transformMetricsData = (data: any) => {
       changeType: 'increase' as const,
       subtitle: 'Last 7 days',
       icon: MessageSquare,
-      status: 'success' as const
+      status: toStatus('success')
     },
     {
       title: 'Phone Health',
@@ -77,70 +84,15 @@ const transformMetricsData = (data: any) => {
       changeType: 'neutral' as const,
       subtitle: 'Average score',
       icon: Phone,
-      status: (phoneHealth || 98) < 85 ? 'error' : 'success' as const
+      status: toStatus((phoneHealth || 98) < 85 ? 'error' : 'success')
     }
   ]
 }
-
-const mockCampaigns = [
-  {
-    id: 1,
-    name: 'Land Acquisition Q4',
-    status: 'Active',
-    sent: 1234,
-    delivered: 1156,
-    replies: 87,
-  },
-  {
-    id: 2,
-    name: 'Property Follow-up',
-    status: 'Paused',
-    sent: 892,
-    delivered: 847,
-    replies: 23,
-  },
-  {
-    id: 3,
-    name: 'New Leads Welcome',
-    status: 'Active',
-    sent: 567,
-    delivered: 534,
-    replies: 45,
-  },
-]
-
-const mockRecentLeads = [
-  {
-    id: 1,
-    name: 'John Smith',
-    phone: '+1 (555) 123-4567',
-    property: '123 Oak Street, Austin, TX',
-    status: 'New',
-    createdAt: '2 hours ago',
-  },
-  {
-    id: 2,
-    name: 'Sarah Johnson',
-    phone: '+1 (555) 987-6543',
-    property: '456 Pine Avenue, Dallas, TX',
-    status: 'Contacted',
-    createdAt: '4 hours ago',
-  },
-  {
-    id: 3,
-    name: 'Mike Wilson',
-    phone: '+1 (555) 456-7890',
-    property: '789 Elm Drive, Houston, TX',
-    status: 'Interested',
-    createdAt: '6 hours ago',
-  },
-]
 
 export function DashboardPage() {
   // Fetch data with React Query hooks
   const { data: metricsData, isLoading: metricsLoading, error: metricsError } = useDashboardMetrics()
   const { data: activeCampaigns, isLoading: campaignsLoading } = useActiveCampaigns()
-  const { data: recentLeads, isLoading: leadsLoading } = useRecentLeads()
   
   // Real-time WebSocket connection
   const { data: liveData, isConnected } = useDashboardWebSocket()
@@ -180,7 +132,7 @@ export function DashboardPage() {
               Live
             </div>
           )}
-          {metricsError && (
+          {Boolean(metricsError) && (
             <div className="flex items-center text-sm text-red-600">
               <AlertTriangle className="w-4 h-4 mr-1" />
               Connection Error

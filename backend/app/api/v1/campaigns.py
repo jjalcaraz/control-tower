@@ -12,6 +12,13 @@ from app.models import Campaign
 router = APIRouter()
 
 
+def _parse_campaign_id(campaign_id: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(campaign_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid campaign ID format.")
+
+
 class CampaignCreate(BaseModel):
     name: str
     description: Optional[str] = None
@@ -28,7 +35,7 @@ class CampaignResponse(BaseModel):
     updated_at: Optional[datetime]
 
 
-@router.get("/", response_model=List[CampaignResponse])
+@router.get("/")
 async def list_campaigns(
     status: Optional[str] = None,
     skip: int = Query(0, ge=0),
@@ -36,18 +43,24 @@ async def list_campaigns(
     db: AsyncSession = Depends(get_db)
 ):
     """List all campaigns"""
-    from sqlalchemy import select
+    from sqlalchemy import select, func
 
     query = select(Campaign)
 
     if status:
         query = query.where(Campaign.status == status)
 
+    count_query = select(func.count(Campaign.id))
+    if status:
+        count_query = count_query.where(Campaign.status == status)
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
     campaigns = result.scalars().all()
 
-    return [
+    data = [
         CampaignResponse(
             id=str(campaign.id),
             name=campaign.name,
@@ -60,14 +73,29 @@ async def list_campaigns(
         for campaign in campaigns
     ]
 
+    current_page = (skip // limit) + 1
+    total_pages = (total + limit - 1) // limit if limit else 1
+
+    return {
+        "success": True,
+        "data": data,
+        "pagination": {
+            "page": current_page,
+            "pageSize": limit,
+            "total": total,
+            "totalPages": total_pages
+        }
+    }
+
 
 @router.get("/{campaign_id}", response_model=CampaignResponse)
 async def get_campaign(campaign_id: str, db: AsyncSession = Depends(get_db)):
     """Get a specific campaign"""
     from sqlalchemy import select
 
+    campaign_uuid = _parse_campaign_id(campaign_id)
     result = await db.execute(
-        select(Campaign).where(Campaign.id == campaign_id)
+        select(Campaign).where(Campaign.id == campaign_uuid)
     )
     campaign = result.scalar_one_or_none()
 
@@ -126,8 +154,9 @@ async def update_campaign(
     """Update a campaign"""
     from sqlalchemy import select
 
+    campaign_uuid = _parse_campaign_id(campaign_id)
     result = await db.execute(
-        select(Campaign).where(Campaign.id == campaign_id)
+        select(Campaign).where(Campaign.id == campaign_uuid)
     )
     campaign = result.scalar_one_or_none()
 
@@ -157,8 +186,9 @@ async def start_campaign(campaign_id: str, db: AsyncSession = Depends(get_db)):
     """Start a campaign"""
     from sqlalchemy import select
 
+    campaign_uuid = _parse_campaign_id(campaign_id)
     result = await db.execute(
-        select(Campaign).where(Campaign.id == campaign_id)
+        select(Campaign).where(Campaign.id == campaign_uuid)
     )
     campaign = result.scalar_one_or_none()
 
@@ -185,8 +215,9 @@ async def pause_campaign(campaign_id: str, db: AsyncSession = Depends(get_db)):
     """Pause a running campaign"""
     from sqlalchemy import select
 
+    campaign_uuid = _parse_campaign_id(campaign_id)
     result = await db.execute(
-        select(Campaign).where(Campaign.id == campaign_id)
+        select(Campaign).where(Campaign.id == campaign_uuid)
     )
     campaign = result.scalar_one_or_none()
 
@@ -208,13 +239,43 @@ async def pause_campaign(campaign_id: str, db: AsyncSession = Depends(get_db)):
     )
 
 
+@router.post("/{campaign_id}/resume", response_model=CampaignResponse)
+async def resume_campaign(campaign_id: str, db: AsyncSession = Depends(get_db)):
+    """Resume a paused campaign"""
+    from sqlalchemy import select
+
+    campaign_uuid = _parse_campaign_id(campaign_id)
+    result = await db.execute(
+        select(Campaign).where(Campaign.id == campaign_uuid)
+    )
+    campaign = result.scalar_one_or_none()
+
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    campaign.status = "active"
+    await db.commit()
+    await db.refresh(campaign)
+
+    return CampaignResponse(
+        id=str(campaign.id),
+        name=campaign.name,
+        description=campaign.description,
+        campaign_type=campaign.campaign_type,
+        status=campaign.status,
+        created_at=campaign.created_at,
+        updated_at=campaign.updated_at
+    )
+
+
 @router.post("/{campaign_id}/stop", response_model=CampaignResponse)
 async def stop_campaign(campaign_id: str, db: AsyncSession = Depends(get_db)):
     """Stop a campaign"""
     from sqlalchemy import select
 
+    campaign_uuid = _parse_campaign_id(campaign_id)
     result = await db.execute(
-        select(Campaign).where(Campaign.id == campaign_id)
+        select(Campaign).where(Campaign.id == campaign_uuid)
     )
     campaign = result.scalar_one_or_none()
 
@@ -236,6 +297,17 @@ async def stop_campaign(campaign_id: str, db: AsyncSession = Depends(get_db)):
     )
 
 
+@router.post("/build-targets")
+async def build_campaign_targets(payload: dict):
+    """Build campaign targets based on filters (placeholder)."""
+    return {
+        "success": True,
+        "totalTargets": 0,
+        "eligibleLeads": 0,
+        "filters": payload
+    }
+
+
 @router.get("/{campaign_id}/stats")
 async def get_campaign_stats(campaign_id: str, db: AsyncSession = Depends(get_db)):
     """Get campaign statistics"""
@@ -251,13 +323,27 @@ async def get_campaign_stats(campaign_id: str, db: AsyncSession = Depends(get_db
     }
 
 
+@router.get("/{campaign_id}/metrics")
+async def get_campaign_metrics(campaign_id: str):
+    """Get detailed campaign metrics (placeholder)."""
+    return {
+        "campaign_id": campaign_id,
+        "messages_sent": 0,
+        "delivery_rate": 0,
+        "reply_rate": 0,
+        "opt_out_rate": 0,
+        "cost": 0
+    }
+
+
 @router.delete("/{campaign_id}", status_code=204)
 async def delete_campaign(campaign_id: str, db: AsyncSession = Depends(get_db)):
     """Delete a campaign"""
     from sqlalchemy import select
 
+    campaign_uuid = _parse_campaign_id(campaign_id)
     result = await db.execute(
-        select(Campaign).where(Campaign.id == campaign_id)
+        select(Campaign).where(Campaign.id == campaign_uuid)
     )
     campaign = result.scalar_one_or_none()
 

@@ -1,7 +1,7 @@
 import { Lead } from '@/types/lead'
 
 // Extended interface to handle various field name formats from API
-interface ExtendedLead extends Lead {
+type ExtendedLead = Omit<Lead, 'primaryPhone'> & {
   fullName?: string
   primaryPhone?: string
   secondaryPhone?: string

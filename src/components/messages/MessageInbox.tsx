@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -118,9 +118,18 @@ const quickResponses: QuickResponse[] = [
 
 interface MessageInboxProps {
   onSelectConversation?: (conversationId: string) => void
+  conversations?: Conversation[]
+  selectedConversation?: string | null
+  searchTerm?: string
+  activeTab?: string
 }
 
-export function MessageInbox({ onSelectConversation }: MessageInboxProps) {
+export function MessageInbox({
+  onSelectConversation,
+  conversations: providedConversations,
+  selectedConversation: selectedConversationId,
+  searchTerm: providedSearchTerm
+}: MessageInboxProps) {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -144,10 +153,10 @@ export function MessageInbox({ onSelectConversation }: MessageInboxProps) {
   // Transform API data to match expected interface
   const normalizedConversations = normalizeConversations(conversationsData)
   const apiConversations = normalizedConversations.map((conv: any) => ({
-    id: (conv.id ?? conv.conversation_id ?? '').toString(),
-    leadId: conv.lead_id?.toString() || '',
+    id: (conv.id ?? conv.conversation_id ?? conv.lead_id ?? '').toString(),
+    leadId: conv.lead_id?.toString() || conv.id?.toString() || '',
     leadName: conv.lead_name || conv.contact_name || 'Unknown',
-    leadPhone: conv.phone_number || conv.leadPhone || '',
+    leadPhone: conv.lead_phone || conv.phone_number || conv.leadPhone || '',
     lastMessage: conv.last_message || conv.lastMessage || '',
     lastMessageAt: conv.last_message_time || conv.lastMessageAt || new Date().toISOString(),
     unreadCount: conv.unread_count ?? conv.unreadCount ?? 0,
@@ -157,19 +166,23 @@ export function MessageInbox({ onSelectConversation }: MessageInboxProps) {
     campaignName: conv.campaign_name || conv.campaignName || ''
   }))
   
-  const conversations = apiConversations.length > 0 ? apiConversations : mockConversationSummaries
+  const conversations = providedConversations || (apiConversations.length > 0 ? apiConversations : mockConversationSummaries)
+  const effectiveSearchTerm = providedSearchTerm ?? searchTerm
+  const activeConversation = selectedConversationId
+    ? conversations.find(conversation => conversation.id === selectedConversationId) || null
+    : selectedConversation
 
   // Set the first conversation as selected when data loads
   useEffect(() => {
-    if (conversations.length > 0 && !selectedConversation) {
+    if (!selectedConversationId && conversations.length > 0 && !selectedConversation) {
       setSelectedConversation(conversations[0])
     }
-  }, [conversations, selectedConversation])
+  }, [conversations, selectedConversation, selectedConversationId])
 
   const filteredConversations = conversations.filter((conv: Conversation) => {
-    const matchesSearch = conv.leadName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         conv.leadPhone.includes(searchTerm) ||
-                         conv.lastMessage.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = conv.leadName.toLowerCase().includes(effectiveSearchTerm.toLowerCase()) ||
+                         conv.leadPhone.includes(effectiveSearchTerm) ||
+                         conv.lastMessage.toLowerCase().includes(effectiveSearchTerm.toLowerCase())
     
     const matchesFilter = filterStatus === 'all' || 
                          (filterStatus === 'unread' && conv.unreadCount > 0) ||
@@ -180,10 +193,10 @@ export function MessageInbox({ onSelectConversation }: MessageInboxProps) {
   })
 
   const conversationMessages = useMemo(() => {
-    const normalized = normalizeMessages(conversationsData?.messages || conversationsData?.data?.messages)
+    const normalized = normalizeMessages((conversationsData as any)?.messages || (conversationsData as any)?.data?.messages)
     const sourceMessages = normalized.length > 0 ? normalized : mockConversationMessages
-    return sourceMessages.filter(msg => msg.conversationId === selectedConversation?.id)
-  }, [conversationsData, selectedConversation])
+    return sourceMessages.filter(msg => msg.conversationId === activeConversation?.id)
+  }, [conversationsData, activeConversation])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -194,9 +207,9 @@ export function MessageInbox({ onSelectConversation }: MessageInboxProps) {
   }, [conversationMessages])
 
   const handleSendMessage = () => {
-    if (messageText.trim() && selectedConversation) {
+    if (messageText.trim() && activeConversation) {
       // In a real app, you would send this via your SMS service
-      console.log('Sending message:', messageText, 'to:', selectedConversation.leadPhone)
+      console.log('Sending message:', messageText, 'to:', activeConversation.leadPhone)
       setMessageText('')
       setShowQuickResponses(false)
     }
@@ -209,8 +222,8 @@ export function MessageInbox({ onSelectConversation }: MessageInboxProps) {
 
   const handleArchiveConversation = async (conversationId: string) => {
     try {
-      await archiveConversation.mutateAsync(parseInt(conversationId))
-      if (selectedConversation?.id === conversationId) {
+      await archiveConversation.mutateAsync(conversationId)
+      if (activeConversation?.id === conversationId) {
         setSelectedConversation(null)
       }
       queryClient.invalidateQueries(['conversations'])
@@ -221,8 +234,8 @@ export function MessageInbox({ onSelectConversation }: MessageInboxProps) {
 
   const handleDeleteConversation = async (conversationId: string) => {
     try {
-      await deleteConversation.mutateAsync(parseInt(conversationId))
-      if (selectedConversation?.id === conversationId) {
+      await deleteConversation.mutateAsync(conversationId)
+      if (activeConversation?.id === conversationId) {
         setSelectedConversation(null)
       }
       queryClient.invalidateQueries(['conversations'])
@@ -235,10 +248,10 @@ export function MessageInbox({ onSelectConversation }: MessageInboxProps) {
     try {
       const conversation = conversations.find(c => c.id === conversationId)
       if (conversation?.status === 'starred') {
-        await unstarConversation.mutateAsync(parseInt(conversationId))
+        await unstarConversation.mutateAsync(conversationId)
         console.log('Conversation unstarred:', conversationId)
       } else {
-        await starConversation.mutateAsync(parseInt(conversationId))
+        await starConversation.mutateAsync(conversationId)
         console.log('Conversation starred:', conversationId)
       }
     } catch (error) {
@@ -279,7 +292,7 @@ export function MessageInbox({ onSelectConversation }: MessageInboxProps) {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">Messages</h2>
             <Badge variant="secondary">
-              {filteredConversations.reduce((sum: number, conv: Conversation) => sum + conv.unreadCount, 0)} unread
+          {filteredConversations.reduce((sum: number, conv: Conversation) => sum + conv.unreadCount, 0)} unread
             </Badge>
           </div>
           
@@ -288,8 +301,12 @@ export function MessageInbox({ onSelectConversation }: MessageInboxProps) {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Search conversations..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={effectiveSearchTerm}
+              onChange={(e) => {
+                if (providedSearchTerm === undefined) {
+                  setSearchTerm(e.target.value)
+                }
+              }}
               className="pl-10"
             />
           </div>
@@ -327,7 +344,7 @@ export function MessageInbox({ onSelectConversation }: MessageInboxProps) {
               key={conversation.id}
               className={cn(
                 "p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors border-l-4",
-                selectedConversation?.id === conversation.id ? "bg-blue-50" : "",
+                activeConversation?.id === conversation.id ? "bg-blue-50" : "",
                 getStatusColor(conversation.status)
               )}
               onClick={() => {
@@ -393,7 +410,7 @@ export function MessageInbox({ onSelectConversation }: MessageInboxProps) {
 
       {/* Messages Area */}
       <div className="flex-1 flex flex-col">
-        {selectedConversation ? (
+        {activeConversation ? (
           <>
             {/* Header */}
             <div className="p-4 border-b bg-gray-50">
@@ -401,14 +418,14 @@ export function MessageInbox({ onSelectConversation }: MessageInboxProps) {
                 <div className="flex items-center space-x-3">
                   <Avatar className="w-10 h-10">
                     <AvatarFallback className="bg-blue-100 text-blue-600">
-                      {selectedConversation.leadName.split(' ').map(n => n[0]).join('')}
+                      {activeConversation.leadName.split(' ').map((n: string) => n[0]).join('')}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h3 className="font-medium">{selectedConversation.leadName}</h3>
+                    <h3 className="font-medium">{activeConversation.leadName}</h3>
                     <div className="flex items-center space-x-2">
                       <Phone className="h-3 w-3 text-gray-500" />
-                      <span className="text-sm text-gray-600">{selectedConversation.leadPhone}</span>
+                      <span className="text-sm text-gray-600">{activeConversation.leadPhone}</span>
                     </div>
                   </div>
                 </div>
@@ -417,15 +434,15 @@ export function MessageInbox({ onSelectConversation }: MessageInboxProps) {
                   <Button 
                     variant="ghost" 
                     size="icon"
-                    onClick={() => handleStarConversation(selectedConversation.id)}
-                    className={selectedConversation.status === 'starred' ? 'text-yellow-500' : ''}
+                    onClick={() => handleStarConversation(activeConversation.id)}
+                    className={activeConversation.status === 'starred' ? 'text-yellow-500' : ''}
                   >
-                    <Star className={cn("h-4 w-4", selectedConversation.status === 'starred' ? 'fill-current' : '')} />
+                    <Star className={cn("h-4 w-4", activeConversation.status === 'starred' ? 'fill-current' : '')} />
                   </Button>
                   <Button 
                     variant="ghost" 
                     size="icon"
-                    onClick={() => handleArchiveConversation(selectedConversation.id)}
+                    onClick={() => handleArchiveConversation(activeConversation.id)}
                   >
                     <Archive className="h-4 w-4" />
                   </Button>
@@ -436,16 +453,16 @@ export function MessageInbox({ onSelectConversation }: MessageInboxProps) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleStarConversation(selectedConversation.id)}>
+                      <DropdownMenuItem onClick={() => handleStarConversation(activeConversation.id)}>
                         <Star className="mr-2 h-4 w-4" />
-                        {selectedConversation.status === 'starred' ? 'Unstar' : 'Star'}
+                        {activeConversation.status === 'starred' ? 'Unstar' : 'Star'}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleArchiveConversation(selectedConversation.id)}>
+                      <DropdownMenuItem onClick={() => handleArchiveConversation(activeConversation.id)}>
                         <Archive className="mr-2 h-4 w-4" />
                         Archive
                       </DropdownMenuItem>
                       <DropdownMenuItem 
-                        onClick={() => handleDeleteConversation(selectedConversation.id)}
+                        onClick={() => handleDeleteConversation(activeConversation.id)}
                         className="text-red-600"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />

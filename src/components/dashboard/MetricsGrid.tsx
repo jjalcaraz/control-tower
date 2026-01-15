@@ -1,13 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Users, 
-  Send, 
-  MessageSquare, 
-  TrendingUp, 
-  Phone,
-  AlertTriangle,
-  ArrowUpIcon, 
+import {
+  Users,
+  Send,
+  MessageSquare,
+  TrendingUp,
+  ArrowUpIcon,
   ArrowDownIcon,
   MinusIcon
 } from 'lucide-react'
@@ -97,7 +95,7 @@ export function MetricsGrid({ metrics, isLoading }: MetricsGridProps) {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {metrics.map((metric, index) => {
+      {metrics.map((metric) => {
         const Icon = metric.icon
         const ChangeIcon = getChangeIcon(metric.changeType)
         

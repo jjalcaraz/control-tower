@@ -2,6 +2,7 @@ import pytest
 import pytest_asyncio
 import asyncio
 from typing import AsyncGenerator
+import httpx
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -64,7 +65,8 @@ async def client(test_db: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
     app.dependency_overrides[get_db] = override_get_db
 
-    async with AsyncClient(app=app, base_url="http://testserver") as test_client:
+    transport = httpx.ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as test_client:
         yield test_client
 
     app.dependency_overrides.clear()

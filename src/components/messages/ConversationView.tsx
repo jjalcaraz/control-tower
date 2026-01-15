@@ -1,28 +1,26 @@
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Label } from '@/components/ui/label'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { 
   Send, 
   Phone, 
-  User, 
   Clock, 
   CheckCircle, 
   XCircle,
   MoreVertical,
   Archive,
-  Star,
   FileText,
   AlertTriangle,
   Zap,
   Trash2
 } from 'lucide-react'
-import { formatDistanceToNow, format } from 'date-fns'
+import { format } from 'date-fns'
 import { useSendMessage, useQuickResponses } from '@/hooks/use-api'
 import { useConversationWebSocket } from '@/hooks/use-websocket'
 import { cn } from '@/lib/utils'
@@ -43,6 +41,7 @@ interface Lead {
   firstName: string
   lastName: string
   phone: string
+  primaryPhone?: string
   email?: string
   address?: {
     city: string
@@ -116,7 +115,7 @@ export function ConversationView({
   onOptOut
 }: ConversationViewProps) {
   const [newMessage, setNewMessage] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
+  const [isTyping] = useState(false)
   const [showQuickResponses, setShowQuickResponses] = useState(false)
   const [notes, setNotes] = useState(lead.notes || '')
   const [notesEditing, setNotesEditing] = useState(false)
@@ -128,11 +127,11 @@ export function ConversationView({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Real-time message updates
-  const { data: liveMessage } = useConversationWebSocket(parseInt(conversationId))
+  const { data: liveMessage } = useConversationWebSocket(conversationId)
   const sendMessageMutation = useSendMessage()
   const { data: quickResponsesData } = useQuickResponses()
 
-  const quickResponses = quickResponsesData?.data || defaultQuickResponses
+  const quickResponses = (quickResponsesData?.data || defaultQuickResponses) as QuickResponse[]
 
   // Update displayed messages when props change
   useEffect(() => {
@@ -155,14 +154,14 @@ export function ConversationView({
 
         // Convert live message to proper format
         const newMessage: Message = {
-          id: liveMessage.message_id || `live_${Date.now()}`,
+          id: liveMessage.message_id?.toString() || `live_${Date.now()}`,
           conversationId: conversationId,
           content: liveMessage.content,
           direction: liveMessage.direction as 'inbound' | 'outbound',
           timestamp: liveMessage.timestamp || new Date().toISOString(),
           status: liveMessage.status || 'sent',
-          fromNumber: liveMessage.from_number,
-          toNumber: liveMessage.to_number
+          fromNumber: liveMessage.sender,
+          toNumber: liveMessage.recipient
         }
 
         return [...prev, newMessage]
@@ -197,7 +196,7 @@ export function ConversationView({
 
     try {
       await sendMessageMutation.mutateAsync({
-        conversationId: parseInt(conversationId),
+        conversationId: conversationId,
         content: newMessage.trim()
       })
       
@@ -565,8 +564,4 @@ export function ConversationView({
       </div>
     </div>
   )
-}
-
-function Label({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={cn("text-sm font-medium", className)}>{children}</div>
 }

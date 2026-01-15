@@ -196,20 +196,21 @@ export class DuplicateDetectionService {
     const processedIds = new Set<number>()
 
     for (const lead of leads) {
-      if (processedIds.has(lead.id)) continue
+      const leadId = Number(lead.id)
+      if (processedIds.has(leadId)) continue
 
       const duplicateMatch = this.detectDuplicatesForLead(
         lead,
-        leads.filter(l => !processedIds.has(l.id)),
+        leads.filter(l => !processedIds.has(Number(l.id))),
         options
       )
 
       if (duplicateMatch) {
         duplicateMatches.push(duplicateMatch)
-        processedIds.add(lead.id)
-        duplicateMatch.duplicates.forEach(dup => processedIds.add(dup.id))
+        processedIds.add(leadId)
+        duplicateMatch.duplicates.forEach(dup => processedIds.add(Number(dup.id)))
       } else {
-        processedIds.add(lead.id)
+        processedIds.add(leadId)
       }
     }
 

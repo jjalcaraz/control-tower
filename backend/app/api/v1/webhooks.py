@@ -1,14 +1,103 @@
 # Webhooks API Routes
+import copy
+
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 from app.core.database import get_db
 from app.core.config import settings
+from app.core.auth import DEFAULT_ORG_ID, DEFAULT_ORG_NAME, DEFAULT_ORG_SLUG, DEFAULT_BRAND_NAME
+from app.models import Organization
 
 router = APIRouter()
+
+
+async def _get_or_create_default_org(db: AsyncSession) -> Organization:
+    result = await db.execute(
+        Organization.__table__.select().where(Organization.id == DEFAULT_ORG_ID)
+    )
+    row = result.first()
+    if row:
+        return await db.get(Organization, DEFAULT_ORG_ID)
+
+    organization = Organization(
+        id=DEFAULT_ORG_ID,
+        name=DEFAULT_ORG_NAME,
+        slug=DEFAULT_ORG_SLUG,
+        brand_name=DEFAULT_BRAND_NAME,
+    )
+    db.add(organization)
+    await db.commit()
+    await db.refresh(organization)
+    return organization
+
+
+def _get_store(organization: Organization) -> dict:
+    store = copy.deepcopy(organization.compliance_settings or {})
+    return store if isinstance(store, dict) else {}
+
+
+@router.get("/")
+async def list_webhooks(db: AsyncSession = Depends(get_db)):
+    """List configured webhooks."""
+    organization = await _get_or_create_default_org(db)
+    store = _get_store(organization)
+    return {
+        "success": True,
+        "data": store.get("webhooks", [])
+    }
+
+
+@router.post("/")
+async def create_webhook(payload: Dict[str, Any], db: AsyncSession = Depends(get_db)):
+    """Create a webhook configuration."""
+    organization = await _get_or_create_default_org(db)
+    store = _get_store(organization)
+    webhooks = list(store.get("webhooks", []))
+
+    webhook = {
+        "id": f"wh_{uuid.uuid4().hex[:8]}",
+        "url": payload.get("url"),
+        "events": payload.get("events", []),
+        "is_active": payload.get("is_active", True),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    webhooks.append(webhook)
+    store["webhooks"] = webhooks
+    organization.compliance_settings = store
+    await db.commit()
+
+    return {"success": True, "data": webhook}
+
+
+@router.post("/test")
+async def test_webhook(payload: Dict[str, Any]):
+    """Test a webhook endpoint."""
+    import httpx
+
+    url = payload.get("url")
+    if not url:
+        raise HTTPException(status_code=400, detail="Missing url")
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                url,
+                json=payload.get("data") or {"test": "data", "timestamp": datetime.now(timezone.utc).isoformat()},
+                timeout=5.0
+            )
+        return {"success": True, "data": {"status_code": response.status_code}}
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+
+
+@router.post("/test-url")
+async def test_webhook_url(payload: Dict[str, Any]):
+    """Test a webhook by URL."""
+    return await test_webhook(payload)
 
 
 @router.post("/twilio/status")

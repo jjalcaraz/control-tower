@@ -156,7 +156,6 @@ export function TagFilter({
                         {multiple && (
                           <Checkbox
                             checked={selectedTags.includes(tag)}
-                            readOnly
                           />
                         )}
                         <div className="flex items-center space-x-2 flex-1 min-w-0">

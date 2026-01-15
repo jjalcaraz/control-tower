@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from './card'
+import { Card, CardContent } from './card'
 import { Button } from './button'
 import { Badge } from './badge'
 import { Checkbox } from './checkbox'
-import { MoreHorizontal, Eye, Edit, Trash2, Phone, Mail, MessageSquare } from 'lucide-react'
+import { MoreHorizontal, Eye, Edit, Trash2, MessageSquare } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,6 +55,10 @@ export function MobileTable<T extends Record<string, any>>({
 }: MobileTableProps<T>) {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const [swipedItem, setSwipedItem] = useState<string | null>(null)
+  const longPressHandlers = useLongPress(() => {
+    // Handle long press - could show context menu or selection mode
+    console.log('Long press detected')
+  })
 
   const toggleExpanded = (id: string) => {
     const newExpanded = new Set(expandedItems)
@@ -102,18 +106,22 @@ export function MobileTable<T extends Record<string, any>>({
 
   // Handle touch events directly for swipe gestures
   const handleTouchStart = (e: React.TouchEvent, item: T) => {
-    e.currentTarget.dataset.touchStart = e.targetTouches[0].clientX.toString()
-    e.currentTarget.dataset.itemId = getIdField(item)
+    const target = e.currentTarget as HTMLElement
+    target.dataset.touchStart = e.targetTouches[0].clientX.toString()
+    target.dataset.itemId = getIdField(item)
+    longPressHandlers.onTouchStart(e)
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!e.currentTarget.dataset.touchStart) return
-    e.currentTarget.dataset.touchEnd = e.targetTouches[0].clientX.toString()
+    const target = e.currentTarget as HTMLElement
+    if (!target.dataset.touchStart) return
+    target.dataset.touchEnd = e.targetTouches[0].clientX.toString()
   }
 
   const handleTouchEnd = (e: React.TouchEvent, item: T) => {
-    const touchStart = parseFloat(e.currentTarget.dataset.touchStart || '0')
-    const touchEnd = parseFloat(e.currentTarget.dataset.touchEnd || touchStart.toString())
+    const target = e.currentTarget as HTMLElement
+    const touchStart = parseFloat(target.dataset.touchStart || '0')
+    const touchEnd = parseFloat(target.dataset.touchEnd || touchStart.toString())
     const minSwipeDistance = 50
 
     const distance = touchStart - touchEnd
@@ -127,15 +135,11 @@ export function MobileTable<T extends Record<string, any>>({
     }
 
     // Clean up
-    delete e.currentTarget.dataset.touchStart
-    delete e.currentTarget.dataset.touchEnd
-    delete e.currentTarget.dataset.itemId
+    delete target.dataset.touchStart
+    delete target.dataset.touchEnd
+    delete target.dataset.itemId
+    longPressHandlers.onTouchEnd()
   }
-
-  const longPressHandlers = useLongPress(() => {
-    // Handle long press - could show context menu or selection mode
-    console.log('Long press detected')
-  })
 
   if (isLoading) {
     return (
@@ -209,11 +213,16 @@ export function MobileTable<T extends Record<string, any>>({
               ${isVisible ? 'ring-2 ring-blue-500' : ''}
               ${onRowClick ? 'cursor-pointer active:scale-[0.98]' : ''}
             `}
-            onClick={() => onRowClick?.(item)}
+            onClick={(e) => {
+              longPressHandlers.onClick(e)
+              onRowClick?.(item)
+            }}
+            onMouseDown={longPressHandlers.onMouseDown}
+            onMouseUp={longPressHandlers.onMouseUp}
+            onMouseLeave={longPressHandlers.onMouseLeave}
             onTouchStart={(e) => handleTouchStart(e, item)}
             onTouchMove={handleTouchMove}
             onTouchEnd={(e) => handleTouchEnd(e, item)}
-            {...longPressHandlers}
           >
             <CardContent className="p-4">
               {/* Header Section */}
@@ -222,7 +231,7 @@ export function MobileTable<T extends Record<string, any>>({
                   {selectionMode && (
                     <Checkbox
                       checked={isVisible}
-                      onCheckedChange={(checked) => handleSelection(item, checked)}
+                      onCheckedChange={(checked) => handleSelection(item, checked === true)}
                       onClick={(e) => e.stopPropagation()}
                     />
                   )}

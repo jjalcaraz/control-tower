@@ -44,10 +44,12 @@ import { PhoneNumberAnalytics } from '@/components/phone-numbers/PhoneNumberAnal
 interface PhoneNumber {
   id: string
   number: string
+  phoneNumber?: string
   carrier: string
   type: 'local' | 'toll_free' | 'short_code'
   status: 'active' | 'inactive' | 'suspended' | 'quarantined'
   healthScore: number
+  health_score?: number
   region: string
   capabilities: string[]
   purchaseDate: string
@@ -62,6 +64,9 @@ interface PhoneNumber {
   monthlyUsed: number
   dailyLimit: number
   dailyUsed: number
+  messages_sent_today?: number
+  messages_remaining?: number
+  last_activity?: string
   compliance: {
     tcpaCompliant: boolean
     carrierApproved: boolean
@@ -107,11 +112,11 @@ export function PhoneNumbersPage() {
   const { data: twilioStatus } = useTwilioStatus()
 
   // Normalize phone number data to handle both snake_case and camelCase fields
-  const phoneNumbersSource = Array.isArray(phoneNumbersData)
+  const phoneNumbersSource = (Array.isArray(phoneNumbersData)
     ? phoneNumbersData
-    : (phoneNumbersData?.results || phoneNumbersData?.data || [])
+    : (phoneNumbersData?.results || phoneNumbersData?.data || [])) as any[]
 
-  const phoneNumbers = phoneNumbersSource.map(number => ({
+  const phoneNumbers = phoneNumbersSource.map((number: any) => ({
     ...number,
     // Normalize field names to consistent camelCase
     healthScore: number.healthScore || number.health_score || 0,
@@ -129,7 +134,7 @@ export function PhoneNumbersPage() {
     optOuts: number.optOuts || number.opt_outs || 0,
     purchaseDate: number.purchaseDate || number.purchase_date || '',
     lastUsed: number.lastUsed || number.last_used || ''
-  }))
+  })) as PhoneNumber[]
   const stats = statsData || {}
 
   const syncTwilioNumbersMutation = useSyncTwilioNumbers({
@@ -153,7 +158,7 @@ export function PhoneNumbersPage() {
     }
 
     try {
-      syncTwilioNumbersMutation.mutate()
+      syncTwilioNumbersMutation.mutate(undefined)
     } catch (error) {
       console.error('Error syncing Twilio numbers:', error)
       alert('Failed to sync Twilio numbers. Please check your configuration.')
@@ -161,8 +166,8 @@ export function PhoneNumbersPage() {
   }
 
   // Filter phone numbers
-  const filteredNumbers = phoneNumbers.filter(number => {
-    const matchesSearch = number.phoneNumber.includes(searchTerm) ||
+  const filteredNumbers = phoneNumbers.filter((number) => {
+    const matchesSearch = (number.phoneNumber || number.number || '').includes(searchTerm) ||
                          number.carrier.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (number.region || '').toLowerCase().includes(searchTerm.toLowerCase())
 

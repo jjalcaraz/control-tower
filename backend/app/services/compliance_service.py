@@ -2,7 +2,7 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, func
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 
 from app.models.suppression import Suppression
@@ -228,7 +228,7 @@ class ComplianceService:
             },
             "format": format,
             "data": {},
-            "generated_at": datetime.utcnow().isoformat()
+            "generated_at": datetime.now(timezone.utc).isoformat()
         }
     
     async def get_violations(

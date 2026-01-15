@@ -193,7 +193,8 @@ export function IntegrationsPage() {
       refetchWebhooks()
     },
     onError: (error) => {
-      toast.error(error.message || 'Failed to create webhook')
+      const message = error instanceof Error ? error.message : 'Failed to create webhook'
+      toast.error(message)
     },
   })
 
@@ -203,13 +204,14 @@ export function IntegrationsPage() {
       refetchAPIKeys()
     },
     onError: (error) => {
-      toast.error(error.message || 'Failed to create API key')
+      const message = error instanceof Error ? error.message : 'Failed to create API key'
+      toast.error(message)
     },
   })
 
-  const integrations = Array.isArray(integrationsData) ? integrationsData : (integrationsData?.results || availableIntegrations)
-  const webhooks = Array.isArray(webhooksData) ? webhooksData : (webhooksData?.results || [])
-  const apiKeys = Array.isArray(apiKeysData) ? apiKeysData : (apiKeysData?.results || [])
+  const integrations = (Array.isArray(integrationsData) ? integrationsData : (integrationsData?.results || availableIntegrations)) as Integration[]
+  const webhooks = (Array.isArray(webhooksData) ? webhooksData : (webhooksData?.results || [])) as Webhook[]
+  const apiKeys = (Array.isArray(apiKeysData) ? apiKeysData : (apiKeysData?.results || [])) as APIKey[]
 
   const connectedIntegrations = integrations.filter(i => i.status === 'connected')
   const disconnectedIntegrations = integrations.filter(i => i.status === 'disconnected')

@@ -19,7 +19,7 @@ import { TagInput } from '@/components/ui/tag-input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Sparkles } from 'lucide-react'
-import { generateLeadTags, LeadData, TaggingOptions, validateAndCleanTags } from '@/lib/leadTagging'
+import { generateLeadTags, LeadData, validateAndCleanTags } from '@/lib/leadTagging'
 
 const addLeadSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -121,7 +121,7 @@ export function AddLeadDialog({ open, onOpenChange, onAddLead }: AddLeadDialogPr
 
   // Update preview tags when relevant fields change
   React.useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
+    const subscription = form.watch((_value, { name }) => {
       if (['state', 'county', 'acreage'].includes(name || '')) {
         setPreviewTags(generatePreviewTags())
       }
@@ -470,7 +470,7 @@ export function AddLeadDialog({ open, onOpenChange, onAddLead }: AddLeadDialogPr
               <Checkbox
                 id="autoTagging"
                 checked={autoTaggingEnabled}
-                onCheckedChange={setAutoTaggingEnabled}
+                onCheckedChange={(checked) => setAutoTaggingEnabled(checked as boolean)}
               />
               <div className="flex-1">
                 <Label htmlFor="autoTagging" className="font-medium">

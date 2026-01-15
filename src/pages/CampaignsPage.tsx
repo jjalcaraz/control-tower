@@ -538,16 +538,17 @@ export function CampaignsPage() {
             console.log('Campaign created successfully:', response)
             
             // Add the new campaign to the local state immediately
+            const tagCount = campaign.targetAudience?.tags?.length ?? 0
             const newCampaign = {
-              id: response.data.id,
-              name: campaign.name,
+              id: response.data.id?.toString() ?? `${Date.now()}`,
+              name: campaign.name || 'Untitled Campaign',
               description: campaign.description || '',
-              type: campaign.type,
+              type: campaign.type || 'broadcast',
               status: 'draft',
               targetAudience: {
                 leadCount: campaign.targetAudience?.filters?.useIndividualSelection 
                   ? (campaign.targetAudience?.filters?.selectedLeadIds?.length || 0)
-                  : (campaign.targetAudience?.tags?.length > 0 ? 100 : 500) // Estimated count
+                  : (tagCount > 0 ? 100 : 500) // Estimated count
               },
               metrics: {
                 totalSent: 0,
@@ -557,7 +558,7 @@ export function CampaignsPage() {
                 optOuts: 0,
                 conversions: 0,
               },
-              schedule: campaign.schedule,
+              schedule: campaign.schedule || { startDate: new Date().toISOString() },
               createdAt: new Date().toISOString(),
             }
             

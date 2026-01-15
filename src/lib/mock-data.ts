@@ -1,7 +1,6 @@
 // Mock data service for frontend-only development
-import type { Lead, Campaign, Message, Template, DashboardMetrics } from '@/types'
 
-export const mockDashboardMetrics: DashboardMetrics = {
+export const mockDashboardMetrics = {
   totalLeads: 1247,
   activeCampaigns: 3,
   messagesSent: 8459,
@@ -15,7 +14,7 @@ export const mockDashboardMetrics: DashboardMetrics = {
   ]
 }
 
-export const mockLeads: Lead[] = [
+export const mockLeads = [
   {
     id: 1,
     firstName: 'John',
@@ -60,7 +59,7 @@ export const mockLeads: Lead[] = [
   }
 ]
 
-export const mockCampaigns: Campaign[] = [
+export const mockCampaigns = [
   {
     id: 1,
     name: 'Spring Cash Offer Campaign',
@@ -93,7 +92,7 @@ export const mockCampaigns: Campaign[] = [
   }
 ]
 
-export const mockTemplates: Template[] = [
+export const mockTemplates = [
   {
     id: 1,
     name: 'Cash Offer Template',
@@ -118,7 +117,7 @@ export const mockTemplates: Template[] = [
   }
 ]
 
-export const mockMessages: Message[] = [
+export const mockMessages = [
   {
     id: 1,
     to: '+1234567890',

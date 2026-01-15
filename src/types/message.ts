@@ -1,8 +1,8 @@
 export interface Message {
-  id: number
-  conversationId: number
-  leadId: number
-  campaignId?: number
+  id: string | number
+  conversationId: string | number
+  leadId: string | number
+  campaignId?: string | number
   direction: 'inbound' | 'outbound'
   content: string
   status: 'pending' | 'sent' | 'delivered' | 'failed' | 'read'
@@ -17,10 +17,10 @@ export interface Message {
 }
 
 export interface Conversation {
-  id: number
-  leadId: number
+  id: string | number
+  leadId: string | number
   lead: {
-    id: number
+    id: string | number
     firstName: string
     lastName: string
     phone: string
@@ -36,7 +36,7 @@ export interface Conversation {
 }
 
 export interface MessageTemplate {
-  id: number
+  id: string | number
   name: string
   content: string
   category: string
@@ -46,7 +46,7 @@ export interface MessageTemplate {
 }
 
 export interface QuickResponse {
-  id: number
+  id: string | number
   name: string
   content: string
   category: string
@@ -55,7 +55,7 @@ export interface QuickResponse {
 }
 
 export interface PhoneNumber {
-  id: number
+  id: string | number
   number: string
   provider: 'twilio' | 'bandwidth'
   status: 'active' | 'suspended' | 'failed'

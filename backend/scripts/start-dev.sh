@@ -38,6 +38,7 @@ mkdir -p uploads logs
 echo "🗄️  Creating database tables..."
 python -c "
 import asyncio
+import app.models  # Import models to register them with SQLAlchemy
 from app.core.database import create_tables
 asyncio.run(create_tables())
 print('Database tables created successfully!')

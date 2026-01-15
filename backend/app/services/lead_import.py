@@ -8,7 +8,7 @@ import io
 import phonenumbers
 import re
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from fastapi import UploadFile, HTTPException
@@ -77,10 +77,19 @@ class LeadImportService:
             bulk_tags = []
         if tagging_options is None:
             tagging_options = {}
+        try:
+            organization_id = uuid.UUID(str(organization_id))
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(status_code=400, detail="Invalid organization_id")
+        try:
+            user_id = uuid.UUID(str(user_id))
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(status_code=400, detail="Invalid user_id")
 
         import_id = str(uuid.uuid4())
         import_batch_id = self._generate_import_batch_id()
-        start_time = datetime.utcnow()
+        import_batch_id_str = str(import_batch_id)
+        start_time = datetime.now(timezone.utc)
 
         # Initialize result with enhanced fields
         result = LeadImportResult(
@@ -97,7 +106,7 @@ class LeadImportService:
             estimated_time_remaining=None,
             current_batch=0,
             total_batches=0,
-            import_batch_id=import_batch_id,
+            import_batch_id=import_batch_id_str,
             validation_warnings=[]
         )
 
@@ -175,14 +184,14 @@ class LeadImportService:
                 result.progress_percentage = progress.progress_pct
 
                 # Calculate ETA
-                elapsed_seconds = (datetime.utcnow() - start_time).total_seconds()
+                elapsed_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
                 if progress.current_row > 0:
                     rows_per_second = progress.current_row / elapsed_seconds
                     remaining_rows = progress.total_rows - progress.current_row
                     progress.eta_seconds = int(remaining_rows / rows_per_second) if rows_per_second > 0 else None
                     result.estimated_time_remaining = progress.eta_seconds
 
-                progress.updated_at = datetime.utcnow()
+                progress.updated_at = datetime.now(timezone.utc)
 
                 # Commit batch
                 await self.db.commit()
@@ -195,13 +204,13 @@ class LeadImportService:
 
             # Final status update
             result.status = "completed"
-            result.completed_at = datetime.utcnow()
+            result.completed_at = datetime.now(timezone.utc)
             progress.status = "completed"
             progress.progress_pct = 100.0
             result.progress_percentage = 100.0
             progress.eta_seconds = 0
             result.estimated_time_remaining = 0
-            progress.updated_at = datetime.utcnow()
+            progress.updated_at = datetime.now(timezone.utc)
 
             logger.info(f"Import {import_id} completed successfully - "
                        f"Total: {result.total_rows}, "
@@ -419,7 +428,9 @@ class LeadImportService:
         if lead_data.get('first_name') or lead_data.get('last_name'):
             first = lead_data.get('first_name') or ''
             last = lead_data.get('last_name') or ''
-            lead_data['owner_name'] = f"{first} {last}".strip()
+            full_name = f"{first} {last}".strip()
+            lead_data['full_name'] = full_name
+            lead_data['owner_name'] = full_name
 
         return lead_data
     
@@ -456,7 +467,7 @@ class LeadImportService:
             if not lead_data.get(field) or (isinstance(lead_data[field], str) and not lead_data[field].strip()):
                 missing_fields.append(field)
 
-        has_name = bool((lead_data.get('owner_name') or '').strip())
+        has_name = bool((lead_data.get('full_name') or lead_data.get('owner_name') or '').strip())
         if not has_name:
             first = (lead_data.get('first_name') or '').strip()
             last = (lead_data.get('last_name') or '').strip()
@@ -760,7 +771,7 @@ class LeadImportService:
                 if value and str(value).strip():
                     setattr(existing_lead, field_map[field], value)
 
-        existing_lead.updated_at = datetime.utcnow()
+        existing_lead.updated_at = datetime.now(timezone.utc)
         if hasattr(existing_lead, 'import_batch_id'):
             existing_lead.import_batch_id = import_batch_id
         if hasattr(existing_lead, 'import_row_number'):
@@ -798,7 +809,7 @@ class LeadImportService:
                     # Create new phone record
                     phone_record = LeadPhone(
                         id=str(uuid.uuid4()),
-                        lead_id=lead.id,
+                        lead_id=str(lead.id),
                         e164=new_data[phone_field],
                         label=phone_field,
                         is_primary=(phone_field == 'phone1')
@@ -810,17 +821,10 @@ class LeadImportService:
         lead_data: Dict[str, Any],
         organization_id: str,
         user_id: str,
-        import_batch_id: str,
+        import_batch_id: uuid.UUID,
         row_number: int
     ):
         """Enhanced lead creation with comprehensive tracking"""
-
-        # Generate import_batch_id as integer if not already
-        if isinstance(import_batch_id, str):
-            try:
-                import_batch_id = int(datetime.utcnow().timestamp())
-            except:
-                import_batch_id = int(datetime.utcnow().timestamp())
 
         # Create main lead record with tracking fields
         lead_kwargs = {
@@ -848,15 +852,16 @@ class LeadImportService:
 
         # Set phone fields for backward compatibility
         phone_field_map = {
-            'phone1': 'phone_number_1',
-            'phone2': 'phone_number_2',
-            'phone3': 'phone_number_3'
+            'phone1': ['phone1', 'phone_number_1'],
+            'phone2': ['phone2', 'phone_number_2'],
+            'phone3': ['phone3', 'phone_number_3']
         }
         for phone_field in ['phone1', 'phone2', 'phone3']:
             if phone_field in lead_data and lead_data[phone_field]:
-                target_field = phone_field_map.get(phone_field, phone_field)
-                if hasattr(lead, target_field):
-                    setattr(lead, target_field, lead_data[phone_field])
+                for target_field in phone_field_map.get(phone_field, [phone_field]):
+                    if hasattr(lead, target_field):
+                        setattr(lead, target_field, lead_data[phone_field])
+                        break
 
         self.db.add(lead)
         await self.db.flush()  # Get the generated lead.id
@@ -873,22 +878,20 @@ class LeadImportService:
             if phone:
                 phone_record = LeadPhone(
                     id=str(uuid.uuid4()),
-                    lead_id=lead.id,
+                    lead_id=str(lead.id),
                     e164=phone,
                     label=f'phone{idx + 1}',
                     is_primary=(idx == 0)
                 )
                 self.db.add(phone_record)
 
-    def _generate_import_batch_id(self) -> str:
+    def _generate_import_batch_id(self) -> uuid.UUID:
         """Generate a unique import batch ID"""
-        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-        unique_id = str(uuid.uuid4())[:8]
-        return f"import_{timestamp}_{unique_id}"
+        return uuid.uuid4()
 
     def _cleanup_old_imports(self):
         """Clean up old import status entries from cache"""
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         cutoff_time = current_time - timedelta(hours=1)
 
         # Remove imports older than 1 hour

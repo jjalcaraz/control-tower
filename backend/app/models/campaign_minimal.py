@@ -1,5 +1,6 @@
 # Minimal Campaign model for development that matches the actual database schema
 from sqlalchemy import Column, String, DateTime, Text, ForeignKey
+from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 import uuid
@@ -16,8 +17,8 @@ class Campaign(Base):
     description = Column(Text, nullable=True)
     campaign_type = Column(String, nullable=False, default="blast")
     status = Column(String, default="draft", index=True)
-    created_at = Column(DateTime(timezone=True), server_default="now()", index=True)
-    updated_at = Column(DateTime(timezone=True), onupdate="now()")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     def __repr__(self):
         return f"<Campaign(id={self.id}, name='{self.name}', status='{self.status}')>"

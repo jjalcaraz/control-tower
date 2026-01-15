@@ -5,7 +5,7 @@ from typing import Dict, List, Set, Optional
 import json
 import asyncio
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from app.core.database import get_db, AsyncSessionLocal
@@ -160,7 +160,7 @@ async def campaign_websocket_endpoint(
                 "type": "campaign_metrics",
                 "campaign_id": campaign_id,
                 "data": initial_metrics,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }))
         
         # Keep connection alive and handle messages
@@ -173,7 +173,7 @@ async def campaign_websocket_endpoint(
                 if message.get("type") == "ping":
                     await websocket.send_text(json.dumps({
                         "type": "pong",
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": datetime.now(timezone.utc).isoformat()
                     }))
                 elif message.get("type") == "subscribe_updates":
                     # Client requesting specific update types
@@ -212,7 +212,7 @@ async def dashboard_websocket_endpoint(
             await websocket.send_text(json.dumps({
                 "type": "dashboard_metrics",
                 "data": initial_metrics,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }))
         
         # Keep connection alive and handle messages
@@ -225,7 +225,7 @@ async def dashboard_websocket_endpoint(
                 if message.get("type") == "ping":
                     await websocket.send_text(json.dumps({
                         "type": "pong",
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": datetime.now(timezone.utc).isoformat()
                     }))
                 elif message.get("type") == "request_update":
                     # Client requesting immediate update
@@ -236,7 +236,7 @@ async def dashboard_websocket_endpoint(
                         await websocket.send_text(json.dumps({
                             "type": "dashboard_metrics",
                             "data": current_metrics,
-                            "timestamp": datetime.utcnow().isoformat()
+                            "timestamp": datetime.now(timezone.utc).isoformat()
                         }))
                 
         except WebSocketDisconnect:
@@ -257,7 +257,7 @@ async def notify_campaign_update(campaign_id: str, update_data: dict):
         "type": "campaign_update",
         "campaign_id": campaign_id,
         "data": update_data,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     
     await manager.broadcast_to_campaign(campaign_id, message)
@@ -269,7 +269,7 @@ async def notify_dashboard_update(org_id: str, update_data: dict):
     message = {
         "type": "dashboard_update",
         "data": update_data,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     
     await manager.broadcast_to_dashboard(org_id, message)
@@ -281,7 +281,7 @@ async def notify_message_status_update(org_id: str, message_data: dict):
     message = {
         "type": "message_status_update",
         "data": message_data,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     
     await manager.broadcast_to_dashboard(org_id, message)
@@ -297,7 +297,7 @@ async def notify_lead_activity(org_id: str, lead_data: dict):
     message = {
         "type": "lead_activity",
         "data": lead_data,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     
     await manager.broadcast_to_dashboard(org_id, message)
@@ -309,7 +309,7 @@ async def notify_compliance_alert(org_id: str, alert_data: dict):
     message = {
         "type": "compliance_alert",
         "data": alert_data,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     
     await manager.broadcast_to_dashboard(org_id, message)

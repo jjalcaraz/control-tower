@@ -69,6 +69,11 @@ const demoApiClient = {
     await new Promise(resolve => setTimeout(resolve, 300))
     return { data: { success: true, data } }
   },
+  patch: async (url: string, data?: any, config?: any) => {
+    if (!suppressErrors) console.log(`🔧 Demo API: PATCH ${url}`)
+    await new Promise(resolve => setTimeout(resolve, 300))
+    return { data: { success: true, data } }
+  },
   delete: async (url: string, config?: any) => {
     if (!suppressErrors) console.log(`🔧 Demo API: DELETE ${url}`)
     await new Promise(resolve => setTimeout(resolve, 300))
@@ -106,7 +111,11 @@ liveApiClient.interceptors.response.use((response) => {
   if (!suppressErrors) console.log('✅ API Response:', response.config.method?.toUpperCase(), response.config.url, response.status)
   return response
 }, (error) => {
-  if (!suppressErrors) console.error('❌ API Error:', error.config?.method?.toUpperCase(), error.config?.url, error.response?.status, error.message)
+  // Skip logging expected 400 errors for Twilio test-config endpoint
+  const isTwilioNotConfigured = error.config?.url?.includes('/messages/test-config') && error.response?.status === 400
+  if (!suppressErrors && !isTwilioNotConfigured) {
+    console.error('❌ API Error:', error.config?.method?.toUpperCase(), error.config?.url, error.response?.status, error.message)
+  }
   return Promise.reject(error)
 })
 
@@ -197,7 +206,7 @@ export const analyticsApi = {
     return response.data
   },
 
-  compareCampaigns: async (campaignIds: number[], metrics?: string[]) => {
+  compareCampaigns: async (campaignIds: Array<string | number>, metrics?: string[]) => {
     const response = await apiClient.post('/analytics/campaigns-comparison', { campaignIds, metrics })
     return response.data
   }
@@ -210,7 +219,7 @@ export const leadsApi = {
     return response.data
   },
 
-  getLead: async (id: number) => {
+  getLead: async (id: string | number) => {
     const response = await apiClient.get(`/leads/${id}`)
     return response.data
   },
@@ -220,12 +229,12 @@ export const leadsApi = {
     return response.data
   },
 
-  updateLead: async (id: number, data: any) => {
-    const response = await apiClient.put(`/leads/${id}`, data)
+  updateLead: async (id: string | number, data: any) => {
+    const response = await apiClient.patch(`/leads/${id}`, data)
     return response.data
   },
 
-  deleteLead: async (id: number) => {
+  deleteLead: async (id: string | number) => {
     const response = await apiClient.delete(`/leads/${id}`)
     return response.data
   },
@@ -247,7 +256,7 @@ export const leadsApi = {
     return response.data
   },
 
-  bulkUpdate: async (leadIds: number[], updates: any) => {
+  bulkUpdate: async (leadIds: Array<string | number>, updates: any) => {
     const response = await apiClient.put('/leads/bulk', { leadIds, updates })
     return response.data
   }
@@ -325,12 +334,12 @@ export const messagesApi = {
     }
   },
 
-  getConversation: async (id: number) => {
+  getConversation: async (id: string | number) => {
     const response = await apiClient.get(`/messages/conversations/${id}`)
     return response.data
   },
 
-  sendMessage: async (conversationId: number, content: string) => {
+  sendMessage: async (conversationId: string | number, content: string) => {
     const response = await apiClient.post(`/messages/conversations/${conversationId}/messages`, { content })
     return response.data
   },
@@ -347,27 +356,27 @@ export const messagesApi = {
     return response.data
   },
 
-  archiveConversation: async (id: number) => {
+  archiveConversation: async (id: string | number) => {
     const response = await apiClient.put(`/messages/conversations/${id}/archive`)
     return response.data
   },
 
-  deleteConversation: async (id: number) => {
+  deleteConversation: async (id: string | number) => {
     const response = await apiClient.delete(`/messages/conversations/${id}`)
     return response.data
   },
 
-  markConversationRead: async (id: number) => {
+  markConversationRead: async (id: string | number) => {
     const response = await apiClient.put(`/messages/conversations/${id}/read`)
     return response.data
   },
 
-  starConversation: async (id: number) => {
+  starConversation: async (id: string | number) => {
     const response = await apiClient.put(`/messages/conversations/${id}/star`)
     return response.data
   },
 
-  unstarConversation: async (id: number) => {
+  unstarConversation: async (id: string | number) => {
     const response = await apiClient.put(`/messages/conversations/${id}/unstar`)
     return response.data
   },
@@ -390,7 +399,7 @@ export const templatesApi = {
     return response.data
   },
 
-  getTemplate: async (id: number) => {
+  getTemplate: async (id: string | number) => {
     const response = await apiClient.get(`/templates/${id}`)
     return response.data
   },
@@ -400,12 +409,12 @@ export const templatesApi = {
     return response.data
   },
 
-  updateTemplate: async (id: number, data: any) => {
+  updateTemplate: async (id: string | number, data: any) => {
     const response = await apiClient.put(`/templates/${id}`, data)
     return response.data
   },
 
-  deleteTemplate: async (id: number) => {
+  deleteTemplate: async (id: string | number) => {
     const response = await apiClient.delete(`/templates/${id}`)
     return response.data
   },
@@ -420,7 +429,7 @@ export const templatesApi = {
     return response.data
   },
 
-  getTemplatePerformance: async (id: number, timeRange?: string) => {
+  getTemplatePerformance: async (id: string | number, timeRange?: string) => {
     const params = timeRange ? `?timeRange=${timeRange}` : ''
     const response = await apiClient.get(`/templates/${id}/performance${params}`)
     return response.data

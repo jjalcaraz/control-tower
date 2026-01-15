@@ -2,7 +2,7 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models.template import Template
 from app.models.lead import Lead
@@ -94,7 +94,7 @@ class TemplateService:
         
         if template:
             template.usage_count = (template.usage_count or 0) + 1
-            template.last_used_at = datetime.utcnow()
+            template.last_used_at = datetime.now(timezone.utc)
             await self.db.commit()
     
     async def get_recent_template_usage(

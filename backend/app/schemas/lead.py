@@ -1,4 +1,4 @@
-from pydantic import BaseModel, validator, Field
+from pydantic import BaseModel, Field, field_validator, ConfigDict, field_serializer
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 import re
@@ -48,7 +48,8 @@ class LeadBase(BaseModel):
     opt_out_reason: Optional[str] = None
     opt_out_date: Optional[datetime] = None
 
-    @validator('phone1', 'phone2', 'phone3')
+    @field_validator('phone1', 'phone2', 'phone3')
+    @classmethod
     def validate_phone_number(cls, v):
         if v is None or v == "":
             return v
@@ -58,7 +59,8 @@ class LeadBase(BaseModel):
             raise ValueError("Phone number must have at least 10 digits")
         return phone
 
-    @validator('email')
+    @field_validator('email')
+    @classmethod
     def validate_email(cls, v):
         if v is None or v == "":
             return None
@@ -100,7 +102,8 @@ class LeadCreateFrontend(BaseModel):
     leadSource: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = None
 
-    @validator('primaryPhone', 'secondaryPhone', 'alternatePhone')
+    @field_validator('primaryPhone', 'secondaryPhone', 'alternatePhone')
+    @classmethod
     def validate_phone_number(cls, v):
         if v is None or v == "":
             return None
@@ -113,22 +116,19 @@ class LeadCreateFrontend(BaseModel):
     def to_lead_create(self) -> LeadCreate:
         """Convert frontend format to backend LeadCreate"""
         return LeadCreate(
-            owner_name=f"{self.firstName} {self.lastName}",
-            phone_number_1=self.primaryPhone,
-            phone_number_2=self.secondaryPhone,
-            phone_number_3=self.alternatePhone,
+            first_name=self.firstName,
+            last_name=self.lastName,
+            phone1=self.primaryPhone,
+            phone2=self.secondaryPhone,
+            phone3=self.alternatePhone,
             email=self.email,
-            street_address=self.street,
+            address_line1=self.street,
             city=self.city,
             state=self.state,
             zip_code=self.zip,
             property_type=self.propertyType,
-            property_value=self.propertyValue,
+            estimated_value=self.propertyValue,
             acreage=self.acreage,
-            year_built=self.yearBuilt,
-            bedrooms=self.bedrooms,
-            bathrooms=self.bathrooms,
-            square_feet=self.squareFeet,
             lead_source=self.leadSource,
             notes=self.notes
         )
@@ -136,50 +136,42 @@ class LeadCreateFrontend(BaseModel):
 
 class LeadUpdate(BaseModel):
     """Schema for updating an existing lead - all fields optional"""
-    owner_name: Optional[str] = Field(None, min_length=1, max_length=255)
-    phone_number_1: Optional[str] = Field(None, min_length=10, max_length=20)
-    phone_number_2: Optional[str] = Field(None, max_length=20)
-    phone_number_3: Optional[str] = Field(None, max_length=20)
+    first_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    last_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    full_name: Optional[str] = Field(None, max_length=255)
+    phone1: Optional[str] = Field(None, min_length=10, max_length=20)
+    phone2: Optional[str] = Field(None, max_length=20)
+    phone3: Optional[str] = Field(None, max_length=20)
     email: Optional[str] = Field(None, max_length=255)
-    street_address: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     zip_code: Optional[str] = None
+    county: Optional[str] = None
     country: str = "US"
+    parcel_id: Optional[str] = None
 
     # Property information
     property_type: Optional[str] = None
-    property_value: Optional[float] = None
+    estimated_value: Optional[int] = None
     acreage: Optional[float] = None
-    year_built: Optional[int] = None
-    bedrooms: Optional[int] = None
-    bathrooms: Optional[float] = None
-    square_feet: Optional[int] = None
-    last_tax_assessment: Optional[float] = None
-    property_taxes: Optional[float] = None
-    tax_year: Optional[int] = None
+    property_address: Optional[str] = None
 
     # Lead information
-    ownership_type: Optional[str] = None
-    ownership_length: Optional[int] = None
-    occupancy_status: Optional[str] = None
-    source_of_lead: Optional[str] = None
     lead_score: Optional[str] = None
     lead_source: Optional[str] = None
-    asking_price: Optional[float] = None
-    assessed_value: Optional[float] = None
-    notes: Optional[str] = None
     status: Optional[str] = None
+    consent_status: Optional[str] = None
+    notes: Optional[str] = None
     tags: Optional[List[str]] = None
 
     # Contact and tracking
-    last_contacted: Optional[datetime] = None
-    next_follow_up: Optional[datetime] = None
-    do_not_contact: Optional[bool] = None
     opt_out_reason: Optional[str] = None
     opt_out_date: Optional[datetime] = None
 
-    @validator('phone_number_1', 'phone_number_2', 'phone_number_3')
+    @field_validator('phone1', 'phone2', 'phone3')
+    @classmethod
     def validate_phone_number(cls, v):
         if v is None or v == "":
             return v
@@ -189,7 +181,8 @@ class LeadUpdate(BaseModel):
             raise ValueError("Phone number must have at least 10 digits")
         return phone
 
-    @validator('email')
+    @field_validator('email')
+    @classmethod
     def validate_email(cls, v):
         if v is None or v == "":
             return None
@@ -203,11 +196,7 @@ class LeadResponse(LeadBase, BaseTimestamps):
     """Schema for lead responses"""
     id: str  # UUID as string
 
-    class Config:
-        from_attributes = True
-        json_encoders = {
-            datetime: lambda dt: dt.isoformat() if dt else None
-        }
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ImportError(BaseModel):
@@ -284,18 +273,14 @@ class LeadImportResult(BaseModel):
     import_batch_id: Optional[str] = None
     validation_warnings: List[str] = []
 
-    class Config:
-        from_attributes = True
-        json_encoders = {
-            datetime: lambda dt: dt.isoformat() if dt else None
-        }
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LeadFilters(BaseModel):
     """Advanced filtering for leads"""
     search: Optional[str] = None
     status: Optional[List[str]] = None
-    lead_score: Optional[List[str]] = None  
+    lead_score: Optional[List[str]] = None
     lead_source: Optional[List[str]] = None
     tags: Optional[List[str]] = None
     states: Optional[List[str]] = None
@@ -307,7 +292,7 @@ class LeadFilters(BaseModel):
     created_before: Optional[datetime] = None
     contacted_after: Optional[datetime] = None
     contacted_before: Optional[datetime] = None
-    
+
     # Pagination
     page: int = 1
     limit: int = 50

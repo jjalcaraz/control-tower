@@ -2,7 +2,7 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models.campaign_minimal import Campaign
 from app.models.lead import Lead
@@ -76,7 +76,7 @@ class CampaignService:
         
         campaign.status = "active"
         if hasattr(campaign, "started_at"):
-            campaign.started_at = datetime.utcnow()
+            campaign.started_at = datetime.now(timezone.utc)
         
         await self.db.commit()
         return True
@@ -94,7 +94,7 @@ class CampaignService:
         
         campaign.status = "paused"
         if hasattr(campaign, "paused_at"):
-            campaign.paused_at = datetime.utcnow()
+            campaign.paused_at = datetime.now(timezone.utc)
         
         await self.db.commit()
         return True

@@ -273,6 +273,7 @@ export function LeadForm({ lead, onSubmit, onCancel, isLoading }: LeadFormProps)
               <label htmlFor="propertyType" className="text-sm font-medium">
                 Property Type
               </label>
+              <input type="hidden" {...register('property.propertyType')} />
               <Select onValueChange={(value) => setValue('property.propertyType', value)}>
                 <SelectTrigger className={errors.property?.propertyType ? 'border-destructive' : ''}>
                   <SelectValue placeholder="Select property type" />
@@ -344,6 +345,7 @@ export function LeadForm({ lead, onSubmit, onCancel, isLoading }: LeadFormProps)
               <label htmlFor="leadSource" className="text-sm font-medium">
                 Lead Source
               </label>
+              <input type="hidden" {...register('leadSource')} />
               <Select onValueChange={(value) => setValue('leadSource', value)}>
                 <SelectTrigger className={errors.leadSource ? 'border-destructive' : ''}>
                   <SelectValue placeholder="Select lead source" />
